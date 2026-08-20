@@ -1,0 +1,83 @@
+# ── Python ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+
+# ── Virtual environments ────────────────────────────────────────────────
+.venv/
+venv/
+ENV/
+
+# ── IDE / OS ────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# ── Testing & linting ───────────────────────────────────────────────────
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+.ruff_cache/
+.mypy_cache/
+.import_linter_cache/
+
+# ── Environment ─────────────────────────────────────────────────────────
+.env
+.env.local
+
+# ── Data & models: DVC's business, never git's ──────────────────────────
+# The empty directory skeleton IS committed, so a fresh clone has somewhere to
+# `dvc pull` into and the intended layout is self-documenting. The contents are
+# not. Note the `/**` rather than a trailing slash: git cannot re-include
+# anything beneath a directory that was itself excluded, so `.data/` would make
+# the negations below dead.
+.data/**
+.models/**
+!.data/**/
+!.models/**/
+!.data/**/.gitkeep
+!.models/**/.gitkeep
+
+# A safety net against committing data by accident. Test fixtures are exempt —
+# small committed fixtures are how the test suite stays hermetic.
+*.csv
+*.parquet
+*.arrow
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.joblib
+*.pt
+*.pth
+*.onnx
+*.safetensors
+!tests/**/fixtures/**
+
+# ── MLflow (local runs only; the real server is remote) ─────────────────
+mlflow.db
+mlruns/
+mlartifacts/
+
+# ── DVC: the .dvc files and dvc.lock are tracked, the cache is not ──────
+.dvc/cache/
+.dvc/tmp/
+.dvc/config.local
+
+# ── Pipeline outputs ────────────────────────────────────────────────────
+.dag_cache/
+runs/
+artifacts/
+logs/
+
+# ── Misc ────────────────────────────────────────────────────────────────
+*.log
+tmp/

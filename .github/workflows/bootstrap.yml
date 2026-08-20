@@ -1,0 +1,101 @@
+# Runs once, on the first push to a repository generated from this template, and
+# then disables itself.
+#
+# IMPORTANT: no placeholder tokens and no project/package sentinels in this file —
+# bootstrap.py deliberately skips .github/workflows/ when running in Actions,
+# because GitHub rejects any GITHUB_TOKEN push that touches that directory, and one
+# rejected file rejects the whole push.
+name: Bootstrap template
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  bootstrap:
+    # Never rewrite the template repository itself — only repositories made from it.
+    if: github.event.repository.is_template == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # A second push must not re-bootstrap an already-bootstrapped project.
+      # bootstrap.py deletes itself on success, so its absence is the marker.
+      - name: Already bootstrapped?
+        id: check
+        run: |
+          if [ -f bootstrap.py ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "bootstrap.py is gone — this repository is already bootstrapped."
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.check.outputs.run == 'true'
+        with:
+          python-version: "3.12"
+
+      # bootstrap.py re-sorts imports after renaming the package, because the new
+      # name sorts differently and would otherwise leave every generated project
+      # with a failing `ruff check`. It needs a ruff to do that with.
+      - name: Install ruff
+        if: steps.check.outputs.run == 'true'
+        run: pip install ruff
+
+      - name: Bootstrap
+        if: steps.check.outputs.run == 'true'
+        env:
+          # bootstrap.py checks this to skip .github/workflows/ — see above.
+          GITHUB_ACTIONS: "true"
+        run: |
+          python bootstrap.py \
+            --project "${{ github.event.repository.name }}" \
+            --owner "${{ github.repository_owner }}" \
+            --description "${{ github.event.repository.description }}"
+
+      - name: Commit
+        if: steps.check.outputs.run == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+          else
+            git commit -m "chore: bootstrap project from template"
+            git push
+          fi
+
+      # bootstrap.py cannot delete this file (the push would be rejected), so the
+      # workflow disables itself through the API instead. It is inert either way:
+      # the job exits early once bootstrap.py is gone. `git rm` it whenever you like.
+      - name: Disable this workflow
+        if: steps.check.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api -X PUT \
+            "repos/${{ github.repository }}/actions/workflows/bootstrap.yml/disable" \
+            || echo "Could not disable the workflow; it is inert regardless."
+
+      - name: Next steps
+        if: steps.check.outputs.run == 'true'
+        run: |
+          {
+            echo "### Bootstrapped"
+            echo ""
+            echo '```bash'
+            echo "git pull"
+            echo "uv sync"
+            echo "cp .env.example .env"
+            echo "uv run pytest"
+            echo '```'
+            echo ""
+            echo "Then set the DVC remotes in \`.dvc/config\` and run \`make dvc-pull\`."
+          } >> "$GITHUB_STEP_SUMMARY"

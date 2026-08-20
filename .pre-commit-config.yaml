@@ -1,0 +1,28 @@
+# Install once per clone:  uv run pre-commit install
+#
+# Deliberately fast: only checks that run in well under a second on a normal diff.
+# The slower gates (pytest, the import boundary, the image verification) belong in
+# `make check` and CI, where a developer is not waiting on them mid-commit.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: detect-private-key
+      # Data belongs in DVC, not git. The .gitignore blocks the usual extensions;
+      # this catches anything large that slips past it.
+      - id: check-added-large-files
+        args: [--maxkb=1024]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.5
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format

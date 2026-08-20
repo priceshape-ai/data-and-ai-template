@@ -1,0 +1,15 @@
+[core]
+    # No default remote, deliberately. Every out pins its own remote (see
+    # .data.dvc / .models.dvc), so a bare `dvc push` cannot send datasets to the
+    # models bucket or vice versa. Setting core.remote here would undo that.
+    autostage = true
+[cache]
+    # reflink where the filesystem supports it (APFS, XFS, btrfs), copy elsewhere.
+    # Avoids a second full copy of multi-gigabyte datasets in .dvc/cache.
+    type = "reflink,copy"
+['remote "datasets"']
+    url = s3://priceshape-datasets/project-name
+    region = eu-central-1
+['remote "models"']
+    url = s3://priceshape-models/project-name
+    region = eu-central-1

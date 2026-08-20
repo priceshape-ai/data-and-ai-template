@@ -1,0 +1,19 @@
+# DVC does not honour .gitignore for its own traversal, so every large untracked
+# tree has to be listed here or `dvc status` walks all of it on every call.
+#
+# Deliberately NOT listed: .data/ and .models/ — those are the DVC-tracked outs.
+
+.dag_cache/
+runs/
+mlruns/
+mlartifacts/
+artifacts/
+.venv/
+.git/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.import_linter_cache/
+.claude/
+notebooks/
+__pycache__/

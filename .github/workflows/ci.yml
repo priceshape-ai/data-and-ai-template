@@ -1,0 +1,106 @@
+# IMPORTANT: this file must contain no placeholder tokens and no project/package
+# sentinels — see TEMPLATE_README.md for what those are.
+#
+# bootstrap.py skips .github/workflows/ entirely when running in Actions, because
+# GitHub rejects any GITHUB_TOKEN push that touches that directory — and one
+# rejected file rejects the whole push, which would leave a generated repository
+# sitting on the raw template. So this workflow discovers the package directory at
+# run time instead of having its name substituted in.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    name: Lint, boundary & tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Type check
+        run: uv run mypy src pipelines tracking viz
+
+      - name: Import boundary
+        run: uv run lint-imports
+
+      - name: Tests
+        run: uv run pytest
+
+  production-deps:
+    name: Production installs without dev tooling
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      # The real assertion of the whole prod/dev split: resolve ONLY
+      # [project].dependencies, then import the serving app. If production code
+      # ever grows an `import mlflow`, this step fails with ModuleNotFoundError —
+      # which is the failure we want, and much earlier than a broken deploy.
+      - name: Install production dependencies only
+        run: uv sync --locked --no-dev
+
+      - name: Serving app imports
+        run: |
+          package=$(ls src | head -1)
+          uv run python -c "import ${package}.serving.app; print('${package} serving imports cleanly')"
+
+      - name: Dev-only tooling is absent
+        run: |
+          for module in mlflow dvc streamlit kfp; do
+            if uv run python -c "import ${module}" 2>/dev/null; then
+              echo "::error::${module} resolved with --no-dev; it must be in a dependency group"
+              exit 1
+            fi
+          done
+          echo "mlflow, dvc, streamlit and kfp are all correctly absent"
+
+  image:
+    name: Production image is clean
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: docker build -f docker/Dockerfile -t ci-image:test .
+
+      - name: No dev tooling or dev roots in the image
+        run: |
+          for module in mlflow dvc streamlit kfp pipelines tracking viz; do
+            if docker run --rm --entrypoint python ci-image:test -c "import ${module}" 2>/dev/null; then
+              echo "::error::${module} is present in the production image"
+              exit 1
+            fi
+          done
+
+      - name: The API answers
+        run: |
+          docker run -d --name api -p 8000:8000 ci-image:test
+          for _ in $(seq 1 30); do
+            if curl -fs localhost:8000/livez; then break; fi
+            sleep 1
+          done
+          curl -fs localhost:8000/healthz
+          curl -fs -X POST localhost:8000/predict \
+            -H 'content-type: application/json' \
+            -d '{"texts":["a test title"]}'
+          docker rm -f api

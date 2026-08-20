@@ -1,0 +1,5 @@
+# Tracks .models/ in the `models` remote. See .data.dvc for why the remote is
+# pinned per-out rather than set as core.remote.
+outs:
+- path: .models
+  remote: models

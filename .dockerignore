@@ -1,0 +1,56 @@
+# The build context is uploaded to the daemon before the first instruction runs,
+# so anything not excluded here is paid for on every single build. In a mature
+# project .data/ and .models/ are tens of gigabytes — excluding them is the
+# difference between a 2-second and a 10-minute build.
+
+# ── Data & models ───────────────────────────────────────────────────────
+.data/
+.models/
+artifacts/
+
+# ── Dev-only roots. These are what keeps them out of the image even if
+#    someone changes the Dockerfile's COPY lines. ─────────────────────────
+pipelines/
+tracking/
+viz/
+notebooks/
+tests/
+docs/
+reports/
+scripts/
+
+# ── Run outputs & caches ────────────────────────────────────────────────
+.dag_cache/
+runs/
+mlruns/
+mlartifacts/
+mlflow.db
+logs/
+
+# ── Tooling ─────────────────────────────────────────────────────────────
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.import_linter_cache/
+.coverage
+htmlcov/
+
+# ── VCS & local config ──────────────────────────────────────────────────
+.git/
+.github/
+.dvc/
+.claude/
+.vscode/
+.idea/
+.env
+.env.local
+.DS_Store
+
+# ── Template scaffolding ────────────────────────────────────────────────
+bootstrap.py
+TEMPLATE_README.md
+Makefile
+deploy/

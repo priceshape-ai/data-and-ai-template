@@ -1,0 +1,74 @@
+# Serving deployment. Adjust the image, resources and replica count per project.
+#
+# The two probes point at different endpoints on purpose. /livez answers as soon
+# as the process is up; /healthz stays 503 until the model has loaded. Pointing
+# the liveness probe at /healthz would make Kubernetes restart the pod part-way
+# through every slow model load, forever.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: project-name
+  labels:
+    app.kubernetes.io/name: project-name
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: project-name
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: project-name
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: api
+          image: project-name:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: ENVIRONMENT
+              value: production
+            - name: LOG_LEVEL
+              value: INFO
+            - name: PORT
+              value: "8000"
+            # MLFLOW_TRACKING_URI is deliberately absent: mlflow is not installed
+            # in this image and serving code may not import it.
+          envFrom:
+            - secretRef:
+                name: project-name-secrets
+                optional: true
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            # Generous: this is what tolerates a cold model download without the
+            # pod ever being marked unhealthy.
+            failureThreshold: 60
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              memory: 4Gi
+          volumeMounts:
+            - name: models
+              mountPath: /app/.models
+      volumes:
+        # Weights are not in the image. Swap for a PVC, or an initContainer that
+        # runs `aws s3 sync`, depending on how big they are.
+        - name: models
+          emptyDir: {}
