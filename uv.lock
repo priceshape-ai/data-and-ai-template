@@ -3337,7 +3337,7 @@ wheels = [
 ]
 
 [[package]]
-name = "project-name"
+name = "data-and-ai-template"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

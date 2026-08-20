@@ -8,8 +8,8 @@
     # Avoids a second full copy of multi-gigabyte datasets in .dvc/cache.
     type = "reflink,copy"
 ['remote "datasets"']
-    url = s3://priceshape-datasets/project-name
+    url = s3://priceshape-datasets/data-and-ai-template
     region = eu-central-1
 ['remote "models"']
-    url = s3://priceshape-models/project-name
+    url = s3://priceshape-models/data-and-ai-template
     region = eu-central-1

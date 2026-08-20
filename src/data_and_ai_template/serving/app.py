@@ -17,9 +17,9 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from project_name import __version__
-from project_name.config import CONFIG
-from project_name.serving.inference import PREDICTOR
+from data_and_ai_template import __version__
+from data_and_ai_template.config import CONFIG
+from data_and_ai_template.serving.inference import PREDICTOR
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down")
 
 
-app = FastAPI(title="project-name", version=__version__, lifespan=lifespan)
+app = FastAPI(title="data-and-ai-template", version=__version__, lifespan=lifespan)
 
 
 @app.get("/healthz")
@@ -89,7 +89,7 @@ def run() -> None:
     import uvicorn
 
     uvicorn.run(
-        "project_name.serving.app:app",
+        "data_and_ai_template.serving.app:app",
         host=CONFIG.serving.host,
         port=CONFIG.serving.port,
         log_level=CONFIG.log_level.lower(),
