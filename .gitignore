@@ -34,17 +34,13 @@ coverage.xml
 .env.local
 
 # ── Data & models: DVC's business, never git's ──────────────────────────
-# The empty directory skeleton IS committed, so a fresh clone has somewhere to
-# `dvc pull` into and the intended layout is self-documenting. The contents are
-# not. Note the `/**` rather than a trailing slash: git cannot re-include
-# anything beneath a directory that was itself excluded, so `.data/` would make
-# the negations below dead.
-.data/**
-.models/**
-!.data/**/
-!.models/**/
-!.data/**/.gitkeep
-!.models/**/.gitkeep
+# Ignored wholesale, including any .gitkeep. DVC refuses to manage a directory
+# that git tracks anything inside — `dvc add .data` fails outright with
+# "output '.data' is already tracked by SCM" — so committing a placeholder to
+# preserve the layout breaks the tool it was meant to serve. `make dvc-pull`
+# creates these directories; `make dvc-init` sets them up the first time.
+.data/
+.models/
 
 # A safety net against committing data by accident. Test fixtures are exempt —
 # small committed fixtures are how the test suite stays hermetic.

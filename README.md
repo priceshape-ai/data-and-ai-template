@@ -53,8 +53,8 @@ so a fresh clone works before you have S3 credentials.
 ├── tests/{unit,integration}/
 ├── docker/Dockerfile          # multi-stage, production dependencies only
 ├── deploy/manifests/          # Kubernetes Deployment and Service
-├── .data/  .models/           # DVC-tracked, git-ignored
-├── .data.dvc  .models.dvc     # DVC pointers (they must sit beside their target)
+├── .data/  .models/           # DVC-tracked, git-ignored wholesale
+├── .data.dvc  .models.dvc     # DVC pointers — created by `make dvc-init`, then committed
 └── notebooks/  scripts/  docs/  reports/
 ```
 
@@ -192,17 +192,31 @@ DVC tracks `.data/` and `.models/` against two S3 buckets:
 | `.models/` | `models` | `s3://priceshape-models/{{PROJECT_NAME}}` |
 
 ```bash
+make dvc-init    # once per project: start tracking, pinning each remote
 make dvc-pull    # fetch
 make dvc-add     # after changing either tree
 make dvc-push    # publish
-git commit .data.dvc .models.dvc
+git commit .data.dvc .models.dvc .gitignore
 ```
 
+`make dvc-init` is what creates `.data.dvc` and `.models.dvc`. The template does
+not ship them, because a `.dvc` file with no hash reads as a pending change
+forever — `dvc status` reports `deleted: .data` and the VS Code DVC extension shows
+a brand-new project as dirty.
+
 Each output pins its own remote and `.dvc/config` sets no default, so a bare
-`dvc push` cannot send datasets to the models bucket. `.data.dvc` and `.models.dvc`
-sit in the repository root because a `.dvc` file has to live beside what it tracks
-— DVC does not support pointing one at a parent directory, and `dvc add --file` was
-removed in DVC 2.0.
+`dvc push` cannot send datasets to the models bucket. `dvc add` has no flag for
+that pin, which is why `scripts/dvc_init.py` writes it; `dvc add` preserves it
+afterwards.
+
+`.data.dvc` and `.models.dvc` live in the repository root because a `.dvc` file has
+to sit beside what it tracks — DVC does not support pointing one at a parent
+directory, and `dvc add --file` was removed in DVC 2.0.
+
+**Never commit anything inside `.data/` or `.models/`, not even a `.gitkeep`.** DVC
+refuses to manage a directory git tracks anything inside: `dvc add .data` fails
+with `output '.data' is already tracked by SCM`. Both directories are git-ignored
+wholesale, and `tests/test_smoke.py` fails if that stops being true.
 
 There is no `dvc.yaml`. `pipelines/dag.py` is the pipeline; DVC does artefact
 versioning only. Two DAG engines in one repository is a maintenance tax with no

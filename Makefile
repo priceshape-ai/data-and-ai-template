@@ -4,7 +4,7 @@ IMAGE    := project-name
 RUN      ?=
 
 .PHONY: help install lint format typecheck imports test check run serve viz \
-        dvc-add dvc-pull dvc-push docker-build docker-run docker-verify clean
+        dvc-init dvc-add dvc-pull dvc-push docker-build docker-run docker-verify clean
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -46,6 +46,9 @@ viz:  ## Explore pipeline runs. Pick one with: make viz RUN=2026-08-20T09-14-02
 	uv run streamlit run viz/app.py -- $(RUN)
 
 # ── data & models ─────────────────────────────────────────────────────────────
+
+dvc-init:  ## First time only: start tracking .data/ and .models/, pinning each remote
+	uv run python scripts/dvc_init.py
 
 dvc-add:  ## Recompute the hashes in .data.dvc / .models.dvc after changing either tree
 	uv run dvc add .data .models

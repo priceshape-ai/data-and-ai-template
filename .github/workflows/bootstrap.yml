@@ -22,7 +22,7 @@ jobs:
       actions: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # A second push must not re-bootstrap an already-bootstrapped project.
       # bootstrap.py deletes itself on success, so its absence is the marker.
@@ -36,7 +36,7 @@ jobs:
             echo "bootstrap.py is gone — this repository is already bootstrapped."
           fi
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         if: steps.check.outputs.run == 'true'
         with:
           python-version: "3.12"
