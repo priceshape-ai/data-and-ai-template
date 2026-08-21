@@ -1,5 +1,5 @@
 [project]
-name = "data-and-ai-template"
+name = "project-name"
 version = "0.1.0"
 description = "PriceShape Data & AI project"
 readme = "README.md"
@@ -88,7 +88,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 # A built wheel — and therefore the production image — contains ONLY this.
-packages = ["src/data_and_ai_template"]
+packages = ["src/project_name"]
 # ...but an editable install also puts the repo root on sys.path, which is what
 # makes `pipelines`, `tracking` and `viz` importable during development without
 # any sys.path.insert() calls. This one setting is what lets the dev roots stay
@@ -98,7 +98,7 @@ dev-mode-dirs = [".", "src"]
 # ── Entrypoints ───────────────────────────────────────────────────────────────
 [project.scripts]
 # Production. Resolves from the wheel.
-serve = "data_and_ai_template.serving.app:run"
+serve = "project_name.serving.app:run"
 # Development only. Resolves from an editable install, via dev-mode-dirs above;
 # it is deliberately absent from the production image.
 pipeline = "pipelines.runner:main"
@@ -107,7 +107,7 @@ pipeline = "pipelines.runner:main"
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-# Mirrors dev-mode-dirs above, and for the same reason: "src" makes data_and_ai_template
+# Mirrors dev-mode-dirs above, and for the same reason: "src" makes project_name
 # first-party, "." makes the dev roots first-party. Listing "pipelines" here
 # instead would make its *submodules* top-level and scramble import sorting.
 src = ["src", "."]
@@ -116,7 +116,7 @@ src = ["src", "."]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["data_and_ai_template", "pipelines", "tracking", "viz"]
+known-first-party = ["project_name", "pipelines", "tracking", "viz"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -136,7 +136,7 @@ ignore_missing_imports = true
 # docs/architecture.md describes this boundary; these contracts are what actually
 # hold it. `make lint` and CI both run `lint-imports`.
 [tool.importlinter]
-root_packages = ["data_and_ai_template", "pipelines", "tracking", "viz"]
+root_packages = ["project_name", "pipelines", "tracking", "viz"]
 # Required because the contracts below forbid third-party packages (mlflow, dvc,
 # streamlit, kfp), not just internal ones.
 include_external_packages = true
@@ -144,7 +144,7 @@ include_external_packages = true
 [[tool.importlinter.contracts]]
 name = "Production code never imports dev-only tooling"
 type = "forbidden"
-source_modules = ["data_and_ai_template"]
+source_modules = ["project_name"]
 forbidden_modules = [
     "mlflow",
     "dvc",

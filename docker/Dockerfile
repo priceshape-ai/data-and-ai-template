@@ -1,7 +1,7 @@
 # Production image for the serving API.
 #
-#   docker build -f docker/Dockerfile -t data-and-ai-template:dev .
-#   docker run --rm -p 8000:8000 --env-file .env data-and-ai-template:dev
+#   docker build -f docker/Dockerfile -t project-name:dev .
+#   docker run --rm -p 8000:8000 --env-file .env project-name:dev
 #
 # Two properties this file is responsible for:
 #
@@ -11,7 +11,7 @@
 #
 # 2. **Only src/.** `--no-editable` makes uv build and install a wheel, and
 #    pyproject's `[tool.hatch.build.targets.wheel] packages` lists just
-#    src/data_and_ai_template — so pipelines/, tracking/ and viz/ are absent even though
+#    src/project_name — so pipelines/, tracking/ and viz/ are absent even though
 #    they sit in the repo root. .dockerignore excludes them from the build
 #    context as well, so neither layer nor context carries them.
 #

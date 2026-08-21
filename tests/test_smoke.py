@@ -14,13 +14,13 @@ import pytest
 
 
 def test_package_imports() -> None:
-    import data_and_ai_template
+    import project_name
 
-    assert data_and_ai_template.__version__
+    assert project_name.__version__
 
 
 def test_config_singleton() -> None:
-    from data_and_ai_template.config import CONFIG
+    from project_name.config import CONFIG
 
     assert CONFIG.environment
     assert CONFIG.paths.data_root.name == ".data"
@@ -58,12 +58,20 @@ def test_expected_directories_exist(project_root, directory: str) -> None:
         ".env.example",
         ".dvcignore",
         ".dockerignore",
-        "docker/Dockerfile",
         "scripts/dvc_init.py",
+        "docker/Dockerfile",
     ],
 )
 def test_expected_files_exist(project_root, file: str) -> None:
     assert (project_root / file).is_file(), f"missing file: {file}"
+
+
+def test_no_config_yaml(project_root) -> None:
+    """Config is frozen dataclasses only; a stray YAML means two sources of truth."""
+    for stray in ("configs/config.yaml", "params.yaml", "config.yaml"):
+        assert not (project_root / stray).exists(), (
+            f"{stray} is back — config belongs in the config package, as dataclasses"
+        )
 
 
 def test_data_dirs_are_not_git_tracked(project_root) -> None:
@@ -87,11 +95,3 @@ def test_data_dirs_are_not_git_tracked(project_root) -> None:
         "git is tracking files inside a DVC output, which breaks `dvc add`:\n"
         f"{tracked}\nRemove them with: git rm -r --cached .data .models"
     )
-
-
-def test_no_config_yaml(project_root) -> None:
-    """Config is frozen dataclasses only; a stray YAML means two sources of truth."""
-    for stray in ("configs/config.yaml", "params.yaml", "config.yaml"):
-        assert not (project_root / stray).exists(), (
-            f"{stray} is back — config belongs in the config package, as dataclasses"
-        )

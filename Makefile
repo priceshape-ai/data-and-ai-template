@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
-PACKAGE := data_and_ai_template
-IMAGE    := data-and-ai-template
+PACKAGE := project_name
+IMAGE    := project-name
 RUN      ?=
 
 .PHONY: help install lint format typecheck imports test check run serve viz \
@@ -47,7 +47,7 @@ viz:  ## Explore pipeline runs. Pick one with: make viz RUN=2026-08-20T09-14-02
 
 # ── data & models ─────────────────────────────────────────────────────────────
 
-dvc-init:  ## First time only: start tracking .data/ and .models/, pinning each remote
+dvc-init:  ## First time only: track .data/ and .models/, pinning each remote
 	uv run python scripts/dvc_init.py
 
 dvc-add:  ## Recompute the hashes in .data.dvc / .models.dvc after changing either tree

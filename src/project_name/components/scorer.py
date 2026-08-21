@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import logging
 
-from data_and_ai_template.config import ScorerConfig
-from data_and_ai_template.result import NodeResult
+from project_name.config import ScorerConfig
+from project_name.result import NodeResult
 
 logger = logging.getLogger(__name__)
 

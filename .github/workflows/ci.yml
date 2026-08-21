@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -48,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: astral-sh/setup-uv@v10
+      - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -59,11 +59,9 @@ jobs:
       - name: Install production dependencies only
         run: uv sync --locked --no-dev
 
-      # Every `uv run` below MUST carry --no-dev. A bare `uv run` re-syncs the
-      # environment first, and since uv installs the `dev` group by default that
-      # silently reinstalls mlflow, dvc, streamlit and kfp — making this job pass
-      # or fail for reasons that have nothing to do with the code. Dropping the
-      # flag is not a style nit; it inverts what the job measures.
+      # Every `uv run` below MUST carry --no-dev. A bare `uv run` re-syncs first,
+      # and uv installs the `dev` group by default — silently reinstalling mlflow,
+      # dvc, streamlit and kfp, which inverts what this job measures.
       - name: Serving app imports
         run: |
           package=$(ls src | head -1)

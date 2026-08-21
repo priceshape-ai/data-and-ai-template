@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from data_and_ai_template.config import PROJECT_ROOT
+from project_name.config import PROJECT_ROOT
 
 
 @pytest.fixture

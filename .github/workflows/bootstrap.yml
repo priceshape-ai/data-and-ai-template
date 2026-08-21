@@ -15,7 +15,23 @@ on:
 jobs:
   bootstrap:
     # Never rewrite the template repository itself — only repositories made from it.
-    if: github.event.repository.is_template == false
+    #
+    # `is_template` alone is NOT enough, and relying on it cost us the template
+    # once. You create the repository, push, and only THEN tick "Template
+    # repository" in settings — so on that first push is_template is still false,
+    # the guard passes, and the workflow bootstraps the template itself: it renames
+    # src/project_name/, substitutes every token, and deletes bootstrap.py. Every
+    # repository generated afterwards then inherits the template's own name and has
+    # no bootstrapper left to fix it.
+    #
+    # The name check does not depend on a setting anyone has to remember, so it
+    # holds from the very first push. It is a literal rather than a token on
+    # purpose: it must survive into every generated project unchanged, and it
+    # contains neither sentinel, so bootstrap.py's substitution leaves it alone.
+    # (A job-level `if` cannot read `env`, so it cannot be factored out.)
+    if: >-
+      github.event.repository.is_template == false &&
+      github.repository != 'priceshape-ai/data-and-ai-template'
     runs-on: ubuntu-latest
     permissions:
       contents: write

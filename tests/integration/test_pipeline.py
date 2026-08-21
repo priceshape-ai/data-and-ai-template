@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import dataclasses
 
-from data_and_ai_template.config import CONFIG
-from data_and_ai_template.result import NodeResult
 from pipelines.build import build_pipeline
 from pipelines.dag import DAG
+from project_name.config import CONFIG
+from project_name.result import NodeResult
 from tracking.mlflow_logger import collect_metrics
 
 
@@ -61,7 +61,7 @@ def test_reads_a_real_dataset_when_one_is_present(tmp_path, monkeypatch) -> None
     """The loader prefers .data/ over the built-in sample."""
     import json
 
-    from data_and_ai_template.data.loader import DatasetLoader
+    from project_name.data.loader import DatasetLoader
 
     data_root = tmp_path / "data"
     (data_root / "raw").mkdir(parents=True)
@@ -72,15 +72,15 @@ def test_reads_a_real_dataset_when_one_is_present(tmp_path, monkeypatch) -> None
     patched = dataclasses.replace(
         CONFIG, paths=dataclasses.replace(CONFIG.paths, data_root=data_root)
     )
-    monkeypatch.setattr("data_and_ai_template.data.loader.CONFIG", patched)
+    monkeypatch.setattr("project_name.data.loader.CONFIG", patched)
 
     result = DatasetLoader(CONFIG.loader)()
     assert result.items == records
 
 
 def test_limit_truncates_the_dataset() -> None:
-    from data_and_ai_template.config import LoaderConfig
-    from data_and_ai_template.data.loader import DatasetLoader
+    from project_name.config import LoaderConfig
+    from project_name.data.loader import DatasetLoader
 
     result = DatasetLoader(LoaderConfig(limit=2))()
     assert len(result.items) == 2

@@ -15,7 +15,7 @@ import logging
 import threading
 from typing import Any
 
-from data_and_ai_template.config import CONFIG
+from project_name.config import CONFIG
 
 logger = logging.getLogger(__name__)
 

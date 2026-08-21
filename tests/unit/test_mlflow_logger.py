@@ -6,8 +6,8 @@ keeping `log_run` a thin wrapper around functions that only transform data.
 
 from __future__ import annotations
 
-from data_and_ai_template.config import CONFIG
-from data_and_ai_template.result import NodeResult
+from project_name.config import CONFIG
+from project_name.result import NodeResult
 from tracking.mlflow_logger import collect_metrics, flatten_config
 
 

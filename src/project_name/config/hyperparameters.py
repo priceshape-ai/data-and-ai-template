@@ -21,7 +21,7 @@ Kubeflow pipeline (where they become the pod's resource requests) — see
 `load_dotenv()` is called here, before CONFIG is built, rather than in the
 entrypoint. CONFIG is a module-level singleton, so any entrypoint that imports it
 before loading .env would silently get defaults; owning the load here makes
-`from data_and_ai_template.config import CONFIG` safe from anywhere. It is a no-op when
+`from project_name.config import CONFIG` safe from anywhere. It is a no-op when
 there is no .env file, which is the case in production.
 """
 
@@ -34,7 +34,7 @@ from typing import Literal
 
 from dotenv import load_dotenv
 
-from data_and_ai_template.config.constants import PROJECT_ROOT
+from project_name.config.constants import PROJECT_ROOT
 
 load_dotenv()
 
@@ -91,9 +91,7 @@ class MlflowConfig:
     """MLflow client settings. An empty tracking_uri disables run logging."""
 
     tracking_uri: str = field(default_factory=lambda: _env("MLFLOW_TRACKING_URI"))
-    experiment: str = field(
-        default_factory=lambda: _env("MLFLOW_EXPERIMENT", "data-and-ai-template")
-    )
+    experiment: str = field(default_factory=lambda: _env("MLFLOW_EXPERIMENT", "project-name"))
 
     @property
     def enabled(self) -> bool:
@@ -106,11 +104,9 @@ class KubeflowConfig:
 
     endpoint: str = field(default_factory=lambda: _env("KUBEFLOW_ENDPOINT"))
     experiment_name: str = field(
-        default_factory=lambda: _env("KUBEFLOW_EXPERIMENT", "data-and-ai-template")
+        default_factory=lambda: _env("KUBEFLOW_EXPERIMENT", "project-name")
     )
-    s3_bucket: str = field(
-        default_factory=lambda: _env("KUBEFLOW_S3_BUCKET", "data-and-ai-template")
-    )
+    s3_bucket: str = field(default_factory=lambda: _env("KUBEFLOW_S3_BUCKET", "project-name"))
     s3_endpoint: str = field(default_factory=lambda: _env("KUBEFLOW_S3_ENDPOINT"))
     base_image: str = field(default_factory=lambda: _env("KUBEFLOW_BASE_IMAGE", "python:3.12-slim"))
 

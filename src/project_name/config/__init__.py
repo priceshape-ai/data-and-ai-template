@@ -1,7 +1,7 @@
-"""Typed configuration. `from data_and_ai_template.config import CONFIG`."""
+"""Typed configuration. `from project_name.config import CONFIG`."""
 
-from data_and_ai_template.config.constants import PROJECT_ROOT, discover_project_root
-from data_and_ai_template.config.hyperparameters import (
+from project_name.config.constants import PROJECT_ROOT, discover_project_root
+from project_name.config.hyperparameters import (
     CONFIG,
     Config,
     Device,

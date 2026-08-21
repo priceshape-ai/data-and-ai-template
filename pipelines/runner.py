@@ -14,10 +14,10 @@ import argparse
 import logging
 import sys
 
-from data_and_ai_template.config import CONFIG
 from pipelines.build import build_pipeline
 from pipelines.dag import DAG
 from pipelines.gitgate import DirtyRepoError, check_clean, git_metadata
+from project_name.config import CONFIG
 
 logger = logging.getLogger(__name__)
 

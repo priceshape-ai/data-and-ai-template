@@ -13,7 +13,7 @@ import os
 
 import pytest
 
-from data_and_ai_template.config import CONFIG
+from project_name.config import CONFIG
 from tracking import mlflow_logger
 from tracking.mlflow_logger import log_run
 

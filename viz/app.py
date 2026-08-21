@@ -18,7 +18,7 @@ from typing import Any
 
 import streamlit as st
 
-from data_and_ai_template.config import CONFIG
+from project_name.config import CONFIG
 
 RUNS_ROOT = CONFIG.paths.runs_root
 

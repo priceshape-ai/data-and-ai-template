@@ -14,7 +14,7 @@ Two constraints shape this file, both from KFP lightweight components:
    `pipelines/kubeflow/storage.py` — `pipelines/` is not in any image.
 
 2. **The base image must be able to unpickle the callable.** The pickle references
-   `data_and_ai_template.components...`, so the image needs the package installed. Point
+   `project_name.components...`, so the image needs the package installed. Point
    `KUBEFLOW_BASE_IMAGE` at this project's own production image: it contains
    `src/` and nothing else, which is exactly what is needed. `boto3` arrives via
    the component's `packages_to_install`, so it need not be a production

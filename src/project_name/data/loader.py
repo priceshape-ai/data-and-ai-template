@@ -12,8 +12,8 @@ import json
 import logging
 from typing import Any
 
-from data_and_ai_template.config import CONFIG, LoaderConfig
-from data_and_ai_template.result import NodeResult
+from project_name.config import CONFIG, LoaderConfig
+from project_name.result import NodeResult
 
 logger = logging.getLogger(__name__)
 

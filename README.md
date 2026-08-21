@@ -1,6 +1,6 @@
-# Data And Ai Template
+# {{PROJECT_TITLE}}
 
-Data And Ai Template — a PriceShape Data & AI project.
+{{PROJECT_DESCRIPTION}}
 
 A PriceShape Data & AI project. MLflow for experiment tracking, DVC on S3 for data
 and model versioning, a DAG-based pipeline that runs locally or on Kubeflow, and a
@@ -35,8 +35,8 @@ so a fresh clone works before you have S3 credentials.
 ## Layout
 
 ```text
-data-and-ai-template/
-├── src/data_and_ai_template/      # PRODUCTION. The only thing in the wheel and the image.
+{{PROJECT_NAME}}/
+├── src/{{PACKAGE_NAME}}/      # PRODUCTION. The only thing in the wheel and the image.
 │   ├── config/                # all configuration: frozen dataclasses
 │   ├── components/            # one module per pipeline step
 │   ├── data/                  # dataset loading
@@ -60,7 +60,7 @@ data-and-ai-template/
 
 Two things about this shape are load-bearing.
 
-**Production is one directory.** `src/data_and_ai_template/` is what a built wheel
+**Production is one directory.** `src/{{PACKAGE_NAME}}/` is what a built wheel
 contains and therefore what the container runs. `pipelines/`, `tracking/` and
 `viz/` sit outside it, so MLflow, DVC, Streamlit and the Kubeflow SDK cannot reach
 production by accident — they are not in the image at all. When you need to know
@@ -82,17 +82,17 @@ config to browse them from a notebook.
 
 ## Configuration
 
-All of it lives in `src/data_and_ai_template/config/hyperparameters.py`, as frozen
+All of it lives in `src/{{PACKAGE_NAME}}/config/hyperparameters.py`, as frozen
 dataclasses. There is no config YAML, deliberately: `Literal`-typed fields turn a
 misspelled model name into an error you see immediately rather than one that
 surfaces three stages into a pipeline, and the values are navigable from the code
 that reads them.
 
 ```python
-from data_and_ai_template.config import CONFIG
+from {{PACKAGE_NAME}}.config import CONFIG
 
-CONFIG.featurizer.model_name  # "BAAI/bge-m3"
-CONFIG.scorer.threshold  # 0.5
+CONFIG.featurizer.model_name    # "BAAI/bge-m3"
+CONFIG.scorer.threshold         # 0.5
 ```
 
 Only environment-specific values come from the environment (`.env` locally, real
@@ -188,8 +188,8 @@ DVC tracks `.data/` and `.models/` against two S3 buckets:
 
 | Tree | Remote | Bucket |
 |---|---|---|
-| `.data/` | `datasets` | `s3://priceshape-datasets/data-and-ai-template` |
-| `.models/` | `models` | `s3://priceshape-models/data-and-ai-template` |
+| `.data/` | `datasets` | `s3://priceshape-datasets/{{PROJECT_NAME}}` |
+| `.models/` | `models` | `s3://priceshape-models/{{PROJECT_NAME}}` |
 
 ```bash
 make dvc-init    # once per project: start tracking, pinning each remote
@@ -199,24 +199,21 @@ make dvc-push    # publish
 git commit .data.dvc .models.dvc .gitignore
 ```
 
-`make dvc-init` is what creates `.data.dvc` and `.models.dvc`. The template does
-not ship them, because a `.dvc` file with no hash reads as a pending change
-forever — `dvc status` reports `deleted: .data` and the VS Code DVC extension shows
-a brand-new project as dirty.
-
-Each output pins its own remote and `.dvc/config` sets no default, so a bare
-`dvc push` cannot send datasets to the models bucket. `dvc add` has no flag for
-that pin, which is why `scripts/dvc_init.py` writes it; `dvc add` preserves it
-afterwards.
-
-`.data.dvc` and `.models.dvc` live in the repository root because a `.dvc` file has
-to sit beside what it tracks — DVC does not support pointing one at a parent
-directory, and `dvc add --file` was removed in DVC 2.0.
+`make dvc-init` is what creates `.data.dvc` and `.models.dvc`. The template does not
+ship them, because a `.dvc` file with no hash reads as a pending change forever —
+`dvc status` reports `deleted: .data` and the VS Code DVC extension shows a
+brand-new project as dirty.
 
 **Never commit anything inside `.data/` or `.models/`, not even a `.gitkeep`.** DVC
-refuses to manage a directory git tracks anything inside: `dvc add .data` fails
-with `output '.data' is already tracked by SCM`. Both directories are git-ignored
-wholesale, and `tests/test_smoke.py` fails if that stops being true.
+refuses to manage a directory git tracks anything inside: `dvc add .data` fails with
+`output '.data' is already tracked by SCM`. Both are git-ignored wholesale, and
+`tests/test_smoke.py` fails if that stops being true.
+
+Each output pins its own remote and `.dvc/config` sets no default, so a bare
+`dvc push` cannot send datasets to the models bucket. `.data.dvc` and `.models.dvc`
+sit in the repository root because a `.dvc` file has to live beside what it tracks
+— DVC does not support pointing one at a parent directory, and `dvc add --file` was
+removed in DVC 2.0.
 
 There is no `dvc.yaml`. `pipelines/dag.py` is the pipeline; DVC does artefact
 versioning only. Two DAG engines in one repository is a maintenance tax with no

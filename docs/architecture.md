@@ -5,11 +5,11 @@ Why this repository is shaped the way it is. The trees and commands are in
 
 ## The one rule: production is one directory
 
-`src/data_and_ai_template/` is what a built wheel contains, and therefore what the
+`src/{{PACKAGE_NAME}}/` is what a built wheel contains, and therefore what the
 container runs. `pipelines/`, `tracking/` and `viz/` are separate top-level roots.
 
 ```
-src/data_and_ai_template/   →  in the wheel, in the image, runs in production
+src/{{PACKAGE_NAME}}/   →  in the wheel, in the image, runs in production
 pipelines/              →  development only
 tracking/               →  development only
 viz/                    →  development only
@@ -25,7 +25,7 @@ Four mechanisms, in increasing order of how early they catch a mistake:
 | Mechanism | Catches |
 | --- | --- |
 | `[dependency-groups]` in `pyproject.toml` | `uv sync --no-dev` cannot install mlflow, dvc, streamlit or kfp |
-| `.dockerignore` + `packages = ["src/data_and_ai_template"]` | those roots are in neither the build context nor the wheel |
+| `.dockerignore` + `packages = ["src/project_name"]` | those roots are in neither the build context nor the wheel |
 | `import-linter` contracts (`make imports`) | `src/` importing a dev-only package, statically, in milliseconds |
 | CI: `uv sync --no-dev` then import the serving app | anything the static check missed, before merge |
 | CI: import each dev module inside the built image | a leak that survived all of the above |
@@ -41,7 +41,7 @@ it:
 
 ```toml
 [tool.hatch.build.targets.wheel]
-packages = ["src/data_and_ai_template"]   # what a built wheel contains
+packages = ["src/project_name"]   # what a built wheel contains
 dev-mode-dirs = [".", "src"]      # what an editable install puts on sys.path
 ```
 
@@ -97,7 +97,7 @@ component or rebuilding an image.
 `pipelines/kubeflow/storage.py`, because KFP lightweight components ship only the
 function's source — and because `pipelines/` is not in any image. What the pod does
 need is the *package*, to unpickle callables that reference
-`data_and_ai_template.components...`. Point `KUBEFLOW_BASE_IMAGE` at this project's own
+`{{PACKAGE_NAME}}.components...`. Point `KUBEFLOW_BASE_IMAGE` at this project's own
 production image: it contains `src/` and nothing else, which is exactly right.
 
 ### Cache invalidation
@@ -114,7 +114,7 @@ pins that down. Hold the config, load models lazily inside `__call__`.
 
 ## Configuration is code
 
-All of it is frozen dataclasses in `src/data_and_ai_template/config/hyperparameters.py`,
+All of it is frozen dataclasses in `src/{{PACKAGE_NAME}}/config/hyperparameters.py`,
 matching the filename `taxonomy-engine` and `ai-productsmatcher` already use. No
 `config.yaml`, no `params.yaml`.
 
@@ -133,7 +133,7 @@ a commit.
 the entrypoint. `CONFIG` is a module-level singleton, so an entrypoint that imported
 it before loading `.env` would silently get defaults — a bug the reference project it
 was ported from actually has. Owning the load in the config module makes
-`from data_and_ai_template.config import CONFIG` safe from anywhere, and it is a no-op
+`from {{PACKAGE_NAME}}.config import CONFIG` safe from anywhere, and it is a no-op
 when there is no `.env`, which is the production case.
 
 ## Reproducibility gate
