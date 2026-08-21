@@ -4,7 +4,7 @@ IMAGE    := project-name
 RUN      ?=
 
 .PHONY: help install lint format typecheck imports test check run serve viz \
-        dvc-init dvc-add dvc-pull dvc-push docker-build docker-run docker-verify clean
+        dvc-pull dvc-push dvc-add docker-build docker-run docker-verify clean
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -47,33 +47,18 @@ viz:  ## Explore pipeline runs. Pick one with: make viz RUN=2026-08-20T09-14-02
 
 # ── data & models ─────────────────────────────────────────────────────────────
 
-dvc-init:  ## First time only: track .data/ and .models/, pinning each remote
-	uv run python scripts/dvc_init.py
-
-dvc-add:  ## Recompute the hashes in .data.dvc / .models.dvc after changing either tree
-	uv run dvc add .data .models
-
-# `dvc pull` on a project that tracks nothing succeeds silently and pulls zero
-# files, which reads as a broken remote rather than an empty one. Say which it is.
-dvc-pull:  ## Fetch data and models from S3
-	@if [ ! -f .data.dvc ] && [ ! -f .models.dvc ]; then \
-		echo "Nothing is tracked by DVC yet, so there is nothing to pull."; \
-		echo ""; \
-		echo "  New project?  Put data in .data/ and models in .models/, then:"; \
-		echo "                  make dvc-init && make dvc-push"; \
-		echo "                (make dvc-init creates both directories for you.)"; \
-		echo ""; \
-		echo "  Expected data? .data.dvc and .models.dvc are not on this branch."; \
-		echo "                Check you are on the right branch and have pulled."; \
-	else \
-		uv run dvc pull; \
-	fi
+# One command for all three situations, because working out which one you are in is
+# something the script can do faster than you can: pull if the .dvc pointers are
+# committed, download and start tracking if plain files are staged in S3, or create
+# the directories if the prefix is empty.
+dvc-pull:  ## Get data and models: sync from S3, or create the dirs if there is none
+	uv run python scripts/dvc_sync.py
 
 dvc-push:  ## Publish data and models to S3
-	@if [ ! -f .data.dvc ] && [ ! -f .models.dvc ]; then \
-		echo "Nothing is tracked by DVC yet. Run 'make dvc-init' first."; exit 1; \
-	fi
 	uv run dvc push
+
+dvc-add:  ## Re-hash .data.dvc / .models.dvc after changing either tree
+	uv run dvc add .data .models
 
 # ── container ─────────────────────────────────────────────────────────────────
 

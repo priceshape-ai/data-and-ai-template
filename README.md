@@ -21,18 +21,40 @@ cp .env.example .env    # then fill it in
 everything: linters, tests, MLflow, DVC, Streamlit and the Kubeflow SDK. There is
 no second requirements file to remember.
 
-Then get the data and models, which depends on which situation you are in:
+Then get the data and models:
 
 ```bash
-make dvc-pull    # joining a project that already has data in S3
-make dvc-init    # brand-new project: start tracking .data/ and .models/
+make dvc-pull
 ```
 
-**A brand-new project has nothing to pull.** `make dvc-pull` will tell you so rather
-than failing — nothing has been pushed to `s3://priceshape-datasets/{{PROJECT_NAME}}`
-yet, and `.data.dvc`/`.models.dvc` do not exist until `make dvc-init` creates them.
-That is the normal first-day state, not a misconfiguration. `make dvc-init` also
-creates both directories, which is the quickest way to get them on disk.
+That one command handles every situation, so there is nothing to choose between. It
+looks at this project's prefix in each bucket and does whatever is called for:
+
+| What it finds | What it does |
+|---|---|
+| `.data.dvc` committed in git | pulls from the DVC cache |
+| plain files staged in S3 | downloads them and starts tracking them |
+| nothing in S3, but data sitting in `.data/` | starts tracking that |
+| nothing anywhere | creates `.data/` and `.models/` for you to fill |
+
+So the first-run loop on a new project is: `make dvc-pull` creates the directories,
+you put data in them, `make dvc-pull` again tracks it, `make dvc-push` publishes it.
+Everyone after you just runs `make dvc-pull` once.
+
+**One thing worth knowing, because it looks like a bug the first time.** `dvc pull`
+on its own cannot fetch files somebody uploaded to the bucket by hand. A DVC remote
+is a content-addressed cache, not a mirror: objects are stored by hash and found by
+resolving those hashes out of `.dvc` files, which reach you through git.
+
+```text
+plain uploads    {{PROJECT_NAME}}/vendor_66bd29b5.db.tar.gz          invisible to dvc pull
+a DVC remote     {{PROJECT_NAME}}/files/md5/0c/b3547c9cb4c508...     what dvc pull reads
+```
+
+`make dvc-pull` covers that gap by downloading such files itself and then tracking
+them, which converts the first shape into the second. It is safe to re-run: it skips
+what is already on disk, and never drags DVC's own `files/` cache into your data
+directories when both live at the same prefix.
 
 Either way the pipeline runs — the loader falls back to a small built-in sample — so
 a fresh clone works before you have data or S3 credentials.
@@ -61,7 +83,7 @@ a fresh clone works before you have data or S3 credentials.
 ├── docker/Dockerfile          # multi-stage, production dependencies only
 ├── deploy/manifests/          # Kubernetes Deployment and Service
 ├── .data/  .models/           # DVC-tracked, git-ignored wholesale
-├── .data.dvc  .models.dvc     # DVC pointers — created by `make dvc-init`, then committed
+├── .data.dvc  .models.dvc     # DVC pointers — created by `make dvc-pull`, then committed
 └── notebooks/  scripts/  docs/  reports/
 ```
 
@@ -199,14 +221,12 @@ DVC tracks `.data/` and `.models/` against two S3 buckets:
 | `.models/` | `models` | `s3://priceshape-models/{{PROJECT_NAME}}` |
 
 ```bash
-make dvc-init    # once per project: start tracking, pinning each remote
-make dvc-pull    # fetch
-make dvc-add     # after changing either tree
+make dvc-pull    # get data: sync, adopt, track or create — whichever applies
 make dvc-push    # publish
-git commit .data.dvc .models.dvc .gitignore
+make dvc-add     # re-hash after changing either tree
 ```
 
-`make dvc-init` is what creates `.data.dvc` and `.models.dvc`. The template does not
+`make dvc-pull` is what creates `.data.dvc` and `.models.dvc`. The template does not
 ship them, because a `.dvc` file with no hash reads as a pending change forever —
 `dvc status` reports `deleted: .data` and the VS Code DVC extension shows a
 brand-new project as dirty.

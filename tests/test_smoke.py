@@ -58,7 +58,7 @@ def test_expected_directories_exist(project_root, directory: str) -> None:
         ".env.example",
         ".dvcignore",
         ".dockerignore",
-        "scripts/dvc_init.py",
+        "scripts/dvc_sync.py",
         "docker/Dockerfile",
     ],
 )
