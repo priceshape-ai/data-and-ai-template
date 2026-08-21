@@ -1,6 +1,6 @@
-# {{PROJECT_TITLE}}
+# Data And Ai Template
 
-{{PROJECT_DESCRIPTION}}
+Data And Ai Template — a PriceShape Data & AI project.
 
 A PriceShape Data & AI project. MLflow for experiment tracking, DVC on S3 for data
 and model versioning, a DAG-based pipeline that runs locally or on Kubeflow, and a
@@ -35,8 +35,8 @@ so a fresh clone works before you have S3 credentials.
 ## Layout
 
 ```text
-{{PROJECT_NAME}}/
-├── src/{{PACKAGE_NAME}}/      # PRODUCTION. The only thing in the wheel and the image.
+data-and-ai-template/
+├── src/data_and_ai_template/      # PRODUCTION. The only thing in the wheel and the image.
 │   ├── config/                # all configuration: frozen dataclasses
 │   ├── components/            # one module per pipeline step
 │   ├── data/                  # dataset loading
@@ -60,7 +60,7 @@ so a fresh clone works before you have S3 credentials.
 
 Two things about this shape are load-bearing.
 
-**Production is one directory.** `src/{{PACKAGE_NAME}}/` is what a built wheel
+**Production is one directory.** `src/data_and_ai_template/` is what a built wheel
 contains and therefore what the container runs. `pipelines/`, `tracking/` and
 `viz/` sit outside it, so MLflow, DVC, Streamlit and the Kubeflow SDK cannot reach
 production by accident — they are not in the image at all. When you need to know
@@ -82,17 +82,17 @@ config to browse them from a notebook.
 
 ## Configuration
 
-All of it lives in `src/{{PACKAGE_NAME}}/config/hyperparameters.py`, as frozen
+All of it lives in `src/data_and_ai_template/config/hyperparameters.py`, as frozen
 dataclasses. There is no config YAML, deliberately: `Literal`-typed fields turn a
 misspelled model name into an error you see immediately rather than one that
 surfaces three stages into a pipeline, and the values are navigable from the code
 that reads them.
 
 ```python
-from {{PACKAGE_NAME}}.config import CONFIG
+from data_and_ai_template.config import CONFIG
 
-CONFIG.featurizer.model_name    # "BAAI/bge-m3"
-CONFIG.scorer.threshold         # 0.5
+CONFIG.featurizer.model_name  # "BAAI/bge-m3"
+CONFIG.scorer.threshold  # 0.5
 ```
 
 Only environment-specific values come from the environment (`.env` locally, real
@@ -188,8 +188,8 @@ DVC tracks `.data/` and `.models/` against two S3 buckets:
 
 | Tree | Remote | Bucket |
 |---|---|---|
-| `.data/` | `datasets` | `s3://priceshape-datasets/{{PROJECT_NAME}}` |
-| `.models/` | `models` | `s3://priceshape-models/{{PROJECT_NAME}}` |
+| `.data/` | `datasets` | `s3://priceshape-datasets/data-and-ai-template` |
+| `.models/` | `models` | `s3://priceshape-models/data-and-ai-template` |
 
 ```bash
 make dvc-init    # once per project: start tracking, pinning each remote

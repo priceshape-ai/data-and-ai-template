@@ -19,7 +19,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from project_name.result import NodeResult
+from data_and_ai_template.result import NodeResult
 
 logger = logging.getLogger(__name__)
 

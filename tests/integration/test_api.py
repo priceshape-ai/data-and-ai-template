@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from project_name.serving.app import app
-from project_name.serving.inference import Predictor
+from data_and_ai_template.serving.app import app
+from data_and_ai_template.serving.inference import Predictor
 
 
 @pytest.fixture

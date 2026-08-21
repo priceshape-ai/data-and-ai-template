@@ -7,25 +7,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: project-name
+  name: data-and-ai-template
   labels:
-    app.kubernetes.io/name: project-name
+    app.kubernetes.io/name: data-and-ai-template
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app.kubernetes.io/name: project-name
+      app.kubernetes.io/name: data-and-ai-template
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: project-name
+        app.kubernetes.io/name: data-and-ai-template
     spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
       containers:
         - name: api
-          image: project-name:latest
+          image: data-and-ai-template:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -41,7 +41,7 @@ spec:
             # in this image and serving code may not import it.
           envFrom:
             - secretRef:
-                name: project-name-secrets
+                name: data-and-ai-template-secrets
                 optional: true
           livenessProbe:
             httpGet:

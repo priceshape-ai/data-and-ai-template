@@ -13,8 +13,8 @@ from collections import Counter
 
 import pytest
 
+from data_and_ai_template.result import NodeResult
 from pipelines.dag import DAG, ItemCache, hash_value
-from project_name.result import NodeResult
 
 CALLS: Counter[str] = Counter()
 
@@ -240,7 +240,7 @@ def test_kubeflow_backend_requires_config(tmp_path) -> None:
 
 def test_hash_value_handles_dataclasses_containing_paths() -> None:
     """Config dataclasses hold Path fields; hashing must not choke on them."""
-    from project_name.config import PathsConfig
+    from data_and_ai_template.config import PathsConfig
 
     assert hash_value(PathsConfig()) == hash_value(PathsConfig())
 

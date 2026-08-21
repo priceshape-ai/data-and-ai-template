@@ -119,7 +119,7 @@ class DAG:
         runs_dir: str | Path = "runs",
         save_runs: bool = True,
         use_disk_cache: bool = True,
-        pipeline_name: str = "project-name",
+        pipeline_name: str = "data-and-ai-template",
     ) -> None:
         self.nodes: dict[str, Node] = {}
         self.cache: dict[str, tuple[str, Any]] = {}
@@ -395,7 +395,7 @@ class DAG:
 
     def _write_traces(self, run_dir: Path) -> None:
         """Write one JSONL trace per node that produced per-item results."""
-        from project_name.result import NodeResult
+        from data_and_ai_template.result import NodeResult
 
         for name, (_, result) in self.cache.items():
             if not isinstance(result, NodeResult):

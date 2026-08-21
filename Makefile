@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
-PACKAGE := project_name
-IMAGE    := project-name
+PACKAGE := data_and_ai_template
+IMAGE    := data-and-ai-template
 RUN      ?=
 
 .PHONY: help install lint format typecheck imports test check run serve viz \

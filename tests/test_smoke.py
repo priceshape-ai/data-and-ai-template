@@ -14,13 +14,13 @@ import pytest
 
 
 def test_package_imports() -> None:
-    import project_name
+    import data_and_ai_template
 
-    assert project_name.__version__
+    assert data_and_ai_template.__version__
 
 
 def test_config_singleton() -> None:
-    from project_name.config import CONFIG
+    from data_and_ai_template.config import CONFIG
 
     assert CONFIG.environment
     assert CONFIG.paths.data_root.name == ".data"
