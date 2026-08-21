@@ -53,10 +53,26 @@ dvc-init:  ## First time only: track .data/ and .models/, pinning each remote
 dvc-add:  ## Recompute the hashes in .data.dvc / .models.dvc after changing either tree
 	uv run dvc add .data .models
 
+# `dvc pull` on a project that tracks nothing succeeds silently and pulls zero
+# files, which reads as a broken remote rather than an empty one. Say which it is.
 dvc-pull:  ## Fetch data and models from S3
-	uv run dvc pull
+	@if [ ! -f .data.dvc ] && [ ! -f .models.dvc ]; then \
+		echo "Nothing is tracked by DVC yet, so there is nothing to pull."; \
+		echo ""; \
+		echo "  New project?  Put data in .data/ and models in .models/, then:"; \
+		echo "                  make dvc-init && make dvc-push"; \
+		echo "                (make dvc-init creates both directories for you.)"; \
+		echo ""; \
+		echo "  Expected data? .data.dvc and .models.dvc are not on this branch."; \
+		echo "                Check you are on the right branch and have pulled."; \
+	else \
+		uv run dvc pull; \
+	fi
 
 dvc-push:  ## Publish data and models to S3
+	@if [ ! -f .data.dvc ] && [ ! -f .models.dvc ]; then \
+		echo "Nothing is tracked by DVC yet. Run 'make dvc-init' first."; exit 1; \
+	fi
 	uv run dvc push
 
 # ── container ─────────────────────────────────────────────────────────────────

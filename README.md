@@ -21,14 +21,21 @@ cp .env.example .env    # then fill it in
 everything: linters, tests, MLflow, DVC, Streamlit and the Kubeflow SDK. There is
 no second requirements file to remember.
 
-Fetch the data and model artefacts:
+Then get the data and models, which depends on which situation you are in:
 
 ```bash
-make dvc-pull
+make dvc-pull    # joining a project that already has data in S3
+make dvc-init    # brand-new project: start tracking .data/ and .models/
 ```
 
-The pipeline runs without this — the loader falls back to a small built-in sample —
-so a fresh clone works before you have S3 credentials.
+**A brand-new project has nothing to pull.** `make dvc-pull` will tell you so rather
+than failing — nothing has been pushed to `s3://priceshape-datasets/{{PROJECT_NAME}}`
+yet, and `.data.dvc`/`.models.dvc` do not exist until `make dvc-init` creates them.
+That is the normal first-day state, not a misconfiguration. `make dvc-init` also
+creates both directories, which is the quickest way to get them on disk.
+
+Either way the pipeline runs — the loader falls back to a small built-in sample — so
+a fresh clone works before you have data or S3 credentials.
 
 ---
 

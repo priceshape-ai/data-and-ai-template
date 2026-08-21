@@ -2,6 +2,10 @@
     # No default remote, deliberately. Every out pins its own remote (see
     # .data.dvc / .models.dvc), so a bare `dvc push` cannot send datasets to the
     # models bucket or vice versa. Setting core.remote here would undo that.
+    #
+    # Consequence: `dvc push`/`dvc pull` print "No remote provided and no default
+    # remote set." and then work correctly anyway, routing each out to its pinned
+    # remote. The line is informational, not an error.
     autostage = true
 [cache]
     # reflink where the filesystem supports it (APFS, XFS, btrfs), copy elsewhere.
