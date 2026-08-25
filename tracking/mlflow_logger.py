@@ -110,9 +110,13 @@ def log_run(
             "under runs/. Re-run with LOG_LEVEL=DEBUG for the traceback.",
             summary,
         )
-        # A rejected credential is the one failure here with an obvious fix, and
-        # the raw status code does not suggest it.
+        # The two failures with an obvious fix that the raw error does not suggest.
         lowered = summary.lower()
+
+        # HTML where JSON belongs means an SSO proxy answered instead of MLflow:
+        # it 302s to a login page and the client parses the page. Credentials do
+        # not help — HTTP basic auth is not what an OAuth proxy is asking for.
+        html_markers = ("<!doctype html", "<html", "not in a valid json format")
         auth_markers = (
             "401",
             "403",
@@ -121,7 +125,33 @@ def log_run(
             "unauthorized",
             "forbidden",
         )
-        if any(marker in lowered for marker in auth_markers):
+
+        # Deleting an experiment in the UI only soft-deletes it: the name stays
+        # reserved, so every later run fails until it is restored. Since
+        # MLFLOW_EXPERIMENT defaults to the project name, that is permanent for
+        # the project unless somebody knows this one API call.
+        if "deleted experiment" in lowered:
+            logger.warning(
+                "Experiment %r exists but is deleted, and MLflow keeps the name "
+                "reserved. Restore it with:\n"
+                '    uv run python -c "from mlflow import MlflowClient; '
+                "c=MlflowClient(); "
+                "c.restore_experiment(c.get_experiment_by_name('%s').experiment_id)\"\n"
+                "Or set MLFLOW_EXPERIMENT in .env to a different name.",
+                config.mlflow.experiment,
+                config.mlflow.experiment,
+            )
+        elif any(marker in lowered for marker in html_markers):
+            logger.warning(
+                "The tracking server returned an HTML page where JSON was "
+                "expected, which means MLFLOW_TRACKING_URI points at something "
+                "behind an SSO login proxy rather than at MLflow's API. "
+                "MLFLOW_TRACKING_USERNAME/PASSWORD will not get through it — "
+                "those are for MLflow's own basic-auth plugin. Use a URL that "
+                "reaches the server directly: the in-cluster address from a "
+                "Kubeflow pod, or a port-forward from a laptop. See .env.example."
+            )
+        elif any(marker in lowered for marker in auth_markers):
             logger.warning(
                 "That looks like an authentication failure. Set "
                 "MLFLOW_TRACKING_USERNAME and MLFLOW_TRACKING_PASSWORD in .env "

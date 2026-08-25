@@ -210,10 +210,25 @@ MLflow gets the same run: hyperparameters as params, `NodeResult.metrics` as
 artefacts. Set `MLFLOW_TRACKING_URI` to enable it; leave it empty and the pipeline
 still runs, just unrecorded.
 
-The shared server needs credentials: set `MLFLOW_TRACKING_USERNAME` and
-`MLFLOW_TRACKING_PASSWORD` in `.env` (or `MLFLOW_TRACKING_TOKEN`). MLflow reads them
-straight from the environment — nothing in this project passes them anywhere. Get
-them wrong and the run is not recorded, but the pipeline still finishes and says so.
+**The browser URL is not the API URL.** `https://mlflow.data.priceshape.io` is
+behind the platform's SSO proxy, which answers an API call with a redirect to a login
+page; MLflow parses the HTML and reports `response body was not in a valid JSON
+format`. No username or password gets past that — the proxy wants an OAuth session,
+not HTTP basic auth. Point the client at the server directly:
+
+```bash
+# From a Kubeflow pod — in-cluster, no auth needed
+MLFLOW_TRACKING_URI=http://mlflow.mlflow.svc.cluster.local
+
+# From a laptop — port-forward. The server enforces a Host allowlist, so the
+# hostname has to survive; map it to localhost for the session.
+sudo sh -c 'echo "127.0.0.1 mlflow.data.priceshape.io" >> /etc/hosts'
+kubectl port-forward -n mlflow svc/mlflow 5000:80
+MLFLOW_TRACKING_URI=http://mlflow.data.priceshape.io:5000
+```
+
+Either way the pipeline still finishes if tracking fails — the run is logged to
+`runs/` regardless, and the warning says which of these two problems it hit.
 
 ---
 
