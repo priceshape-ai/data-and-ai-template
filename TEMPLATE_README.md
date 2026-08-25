@@ -85,7 +85,7 @@ run the script locally.
 
 ```bash
 python bootstrap.py --dry-run     # print the plan, change nothing
-python bootstrap.py              # do it
+python bootstrap.py               # do it
 ```
 
 | Option | Effect |
