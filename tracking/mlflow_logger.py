@@ -104,11 +104,29 @@ def log_run(
         # strictly better than losing its results. The summary goes to WARNING and
         # the traceback to DEBUG — an unreachable tracking server is a normal
         # operational event and should not read like a crash.
+        summary = str(exc).splitlines()[0] if str(exc) else type(exc).__name__
         logger.warning(
             "MLflow logging failed (%s) — the run completed and its results are "
             "under runs/. Re-run with LOG_LEVEL=DEBUG for the traceback.",
-            str(exc).splitlines()[0] if str(exc) else type(exc).__name__,
+            summary,
         )
+        # A rejected credential is the one failure here with an obvious fix, and
+        # the raw status code does not suggest it.
+        lowered = summary.lower()
+        auth_markers = (
+            "401",
+            "403",
+            "unauthenticated",
+            "permission_denied",
+            "unauthorized",
+            "forbidden",
+        )
+        if any(marker in lowered for marker in auth_markers):
+            logger.warning(
+                "That looks like an authentication failure. Set "
+                "MLFLOW_TRACKING_USERNAME and MLFLOW_TRACKING_PASSWORD in .env "
+                "(or MLFLOW_TRACKING_TOKEN) — see .env.example."
+            )
         logger.debug("MLflow failure traceback", exc_info=True)
         return None
 

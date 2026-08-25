@@ -212,6 +212,11 @@ MLflow gets the same run: hyperparameters as params, `NodeResult.metrics` as
 artefacts. Set `MLFLOW_TRACKING_URI` to enable it; leave it empty and the pipeline
 still runs, just unrecorded.
 
+The shared server needs credentials: set `MLFLOW_TRACKING_USERNAME` and
+`MLFLOW_TRACKING_PASSWORD` in `.env` (or `MLFLOW_TRACKING_TOKEN`). MLflow reads them
+straight from the environment — nothing in this project passes them anywhere. Get
+them wrong and the run is not recorded, but the pipeline still finishes and says so.
+
 ---
 
 ## Serving
