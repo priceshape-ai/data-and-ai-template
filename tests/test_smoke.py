@@ -54,6 +54,7 @@ def test_expected_directories_exist(project_root, directory: str) -> None:
     [
         "pyproject.toml",
         "README.md",
+        "EXECUTE.md",
         "Makefile",
         ".env.example",
         ".dvcignore",

@@ -1,7 +1,7 @@
 # Architecture
 
 Why this repository is shaped the way it is. The trees and commands are in
-[`README.md`](../README.md); this file covers the decisions.
+[`EXECUTE.md`](../EXECUTE.md); this file covers the decisions.
 
 ## The one rule: production is one directory
 
