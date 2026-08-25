@@ -57,8 +57,10 @@ dvc-pull:  ## Get data and models: sync from S3, or create the dirs if there is 
 dvc-push:  ## Publish data and models to S3
 	uv run dvc push
 
+# Not a bare `dvc add`: that re-hashes but drops the remote: pin, and an unpinned
+# output is how a dataset reaches the models bucket.
 dvc-add:  ## Re-hash .data.dvc / .models.dvc after changing either tree
-	uv run dvc add .data .models
+	uv run python scripts/dvc_sync.py --add
 
 # ── container ─────────────────────────────────────────────────────────────────
 

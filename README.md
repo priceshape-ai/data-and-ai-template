@@ -8,6 +8,28 @@ FastAPI service for inference.
 
 ---
 
+## First run
+
+Everything you need to do to a repository just created from the template, in order:
+
+```bash
+uv sync                        # 1. the whole development environment
+cp .env.example .env           # 2. then fill it in — AWS credentials matter most
+export AWS_PROFILE=data        # 3. or set the keys in .env
+make dvc-pull                  # 4. get the data, or create the dirs for it
+make check                     # 5. lint, types, import boundary, tests
+uv run pipeline                # 6. run the pipeline end to end
+```
+
+Step 4 is the only one that varies, and it tells you which case you are in. Step 6
+works even if step 4 found no data — the loader falls back to a built-in sample.
+
+The rest of this file explains each piece: [Setup](#setup),
+[Data and models](#data-and-models), [Running the pipeline](#running-the-pipeline),
+[Serving](#serving). `make help` lists every command.
+
+---
+
 ## Setup
 
 Python 3.12 and [uv](https://docs.astral.sh/uv/) are the only prerequisites.
@@ -16,6 +38,10 @@ Python 3.12 and [uv](https://docs.astral.sh/uv/) are the only prerequisites.
 uv sync                 # the whole development environment
 cp .env.example .env    # then fill it in
 ```
+
+DVC reads AWS credentials the same way every AWS tool does. Either export a profile
+(`export AWS_PROFILE=data`) or put `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+in `.env`. Without them `make dvc-pull` says so plainly rather than failing obscurely.
 
 `uv sync` installs the `dev` dependency group by default, which pulls in
 everything: linters, tests, MLflow, DVC, Streamlit and the Kubeflow SDK. There is
@@ -230,6 +256,21 @@ make dvc-add     # re-hash after changing either tree
 ship them, because a `.dvc` file with no hash reads as a pending change forever —
 `dvc status` reports `deleted: .data` and the VS Code DVC extension shows a
 brand-new project as dirty.
+
+**Push before you commit the pointer.** `.data.dvc` records hashes; the content
+those hashes name lives in S3 and gets there via `make dvc-push`. Commit the pointer
+without pushing and everyone else — including future you, on a fresh clone — gets a
+`dvc pull` that fails, because the pointer names content that exists nowhere. Always:
+
+```bash
+make dvc-add     # re-hash
+make dvc-push    # upload — this one first
+git add .data.dvc .models.dvc .gitignore && git commit
+```
+
+`make dvc-pull` detects that situation and says so, but the only real fix is a
+`make dvc-push` from a machine that still has the files. If none does, the data is
+gone and the pointer has to be deleted.
 
 **Never commit anything inside `.data/` or `.models/`, not even a `.gitkeep`.** DVC
 refuses to manage a directory git tracks anything inside: `dvc add .data` fails with

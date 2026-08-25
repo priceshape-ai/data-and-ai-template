@@ -81,11 +81,29 @@ def classify(url: str, root: Path) -> tuple[str, list[str]]:
     result = run("dvc", "list-url", url, cwd=root)
     if result.returncode != 0:
         stderr = result.stderr.strip()
-        detail = stderr.splitlines()[-1] if stderr else "unknown error"
+        # Match against the whole of stderr, and display the ERROR: line rather
+        # than the last one — dvc signs off with "Having any troubles? Hit us up
+        # at ...", so the last line is a support footer, never the diagnosis.
+        lowered = stderr.lower()
+        detail = next(
+            (ln.strip() for ln in stderr.splitlines() if ln.strip().startswith("ERROR:")),
+            stderr.splitlines()[-1] if stderr else "unknown error",
+        )
+
+        # Order matters. A missing BUCKET also says "does not exist", so it has to
+        # be caught before the empty-prefix check — otherwise a typo'd or
+        # not-yet-created bucket looks like a new project, and the failure surfaces
+        # much later at `dvc push` instead of here.
+        if "nosuchbucket" in lowered or "specified bucket does not exist" in lowered:
+            return "no-bucket", [detail]
+        if "unable to locate credentials" in lowered:
+            return "no-credentials", [detail]
+        if "forbidden" in lowered or "accessdenied" in lowered or "(403)" in detail:
+            return "forbidden", [detail]
+
         # A prefix nobody has written to yet does not exist as far as S3 is
-        # concerned. That is the ordinary state of a new project, not a fault, so
-        # do not report it as one.
-        if "does not exist" in detail or "NoSuchKey" in detail:
+        # concerned. That is the ordinary state of a new project, not a fault.
+        if "does not exist" in detail or "nosuchkey" in lowered:
             return "empty", []
         return "error", [detail]
 
@@ -193,7 +211,19 @@ def sync_one(directory: str, remote: str, url: str, root: Path) -> str:
     if pointer.exists():
         result = run("dvc", "pull", str(pointer.name), cwd=root)
         if result.returncode != 0:
-            print(f"    dvc pull failed: {result.stderr.strip().splitlines()[-1]}")
+            detail = result.stderr.strip().splitlines()[-1] if result.stderr.strip() else ""
+            # By far the most common cause, and the bare error URL says none of it:
+            # someone ran `dvc add` and committed the pointer, but never pushed the
+            # cache, so the hashes in it name content that exists nowhere.
+            if "missing-files" in detail or "missing" in detail.lower():
+                print(f"    {pointer.name} is committed, but its contents were never")
+                print(f"    pushed — nothing at {url} matches the hashes it records.")
+                print("    Whoever added it needs to run `make dvc-push` from the")
+                print("    machine that still has the files. If nobody has them, the")
+                print(f"    data is gone: `git rm {pointer.name}`, commit, and start again")
+                print("    with `make dvc-pull`.")
+            else:
+                print(f"    dvc pull failed: {detail}")
             return "failed"
         files = sum(1 for f in target.rglob("*") if f.is_file()) if target.exists() else 0
         print(f"    pulled from the DVC cache — {files} file(s) on disk")
@@ -214,12 +244,29 @@ def sync_one(directory: str, remote: str, url: str, root: Path) -> str:
     target.mkdir(parents=True, exist_ok=True)
     local_files = sum(1 for f in target.rglob("*") if f.is_file())
 
-    if kind == "error":
-        print(f"    cannot read the remote: {entries[0]}")
-        print("    Check your AWS credentials.")
+    if kind in ("no-bucket", "no-credentials", "forbidden", "error"):
+        if kind == "no-bucket":
+            bucket = url.split("/")[2] if url.startswith("s3://") else url
+            print(f"    the bucket {bucket} does not exist.")
+            print("    A per-project prefix needs no creating — S3 makes those on")
+            print("    first write — but the bucket does. Ask whoever administers")
+            print("    AWS to create it, or fix the name in .dvc/config.")
+        elif kind == "no-credentials":
+            print("    no AWS credentials found.")
+            print("    Set AWS_PROFILE (PriceShape uses the 'data' profile) or put")
+            print("    AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in .env.")
+        elif kind == "forbidden":
+            print("    credentials found, but they cannot read this bucket (403).")
+            print("    Check you are on the right AWS profile and have access.")
+        else:
+            print(f"    cannot read the remote: {entries[0]}")
+
         if not local_files:
             print(f"    created {directory}/ so you can work locally meanwhile.")
             return "unreachable"
+        print("    Not tracking anything until the remote is reachable — a pointer")
+        print("    you cannot push is worse than none.")
+        return "unreachable"
 
     elif kind == "cache-only":
         print("    holds a DVC cache but no plain files, and this project has no")
@@ -240,8 +287,33 @@ def sync_one(directory: str, remote: str, url: str, root: Path) -> str:
     return "empty"
 
 
+def retrack(root: Path) -> int:
+    """Re-hash both trees and keep their remotes pinned. Backs `make dvc-add`.
+
+    A bare `dvc add` would do the re-hash, but it does not write the `remote:`
+    pin — and an output with no pin is exactly how a dataset ends up in the models
+    bucket, because `dvc push` then falls back to whatever default it can find.
+    `dvc add` preserves a pin that is already there, so this only has to notice the
+    ones that are missing.
+    """
+    for directory, remote in TARGETS:
+        target = root / directory
+        if not target.exists() or not any(target.iterdir()):
+            print(f"{directory}/ — empty or absent, nothing to re-hash.")
+            continue
+        print(f"{directory}/")
+        track(directory, remote, root)
+    return 0
+
+
 def main() -> int:
     root = repo_root()
+
+    if "--add" in sys.argv[1:]:
+        if not (root / ".dvc").is_dir():
+            print("No .dvc/ directory — run `dvc init` first.", file=sys.stderr)
+            return 1
+        return retrack(root)
 
     if not (root / ".dvc").is_dir():
         print("No .dvc/ directory — run `dvc init` first.", file=sys.stderr)
