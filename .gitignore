@@ -29,6 +29,12 @@ coverage.xml
 .mypy_cache/
 .import_linter_cache/
 
+# ── Claude Code ─────────────────────────────────────────────────────────
+# CLAUDE.md, .claude/rules/, .claude/hooks/ and .claude/skills/ ARE committed:
+# they are how the architecture explains and defends itself. Only per-machine
+# settings stay out.
+.claude/settings.local.json
+
 # ── Environment ─────────────────────────────────────────────────────────
 .env
 .env.local

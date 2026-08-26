@@ -7,7 +7,7 @@ needs.
 
 > **This file documents the template itself.** `bootstrap.py` deletes it from
 > generated repositories, along with itself, so a new project keeps only its own
-> `README.md` and `EXECUTE.md`.
+> `README.md`, `EXECUTE.md`, `CLAUDE.md` and the `.claude/` directory.
 
 ---
 

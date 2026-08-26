@@ -341,6 +341,56 @@ the import-linter contracts in `pyproject.toml`, and a job that installs
 
 ---
 
+## Working with Claude Code
+
+The repository explains and defends its own architecture, so an agent — or a new
+teammate reading over its shoulder — gets the rules without being told.
+
+| File | Loaded | Does |
+| --- | --- | --- |
+| `CLAUDE.md` | every session | the invariants and landmines, kept under 200 lines |
+| `.claude/rules/*.md` | when you touch matching files | the deep rules for one area |
+| `.claude/skills/*/SKILL.md` | when the task matches | step-by-step workflows |
+| `.claude/hooks/architecture_guard.py` | before every edit | refuses structural violations |
+
+The split matters. `CLAUDE.md` and the rules are *context*: Claude reads them and
+generally follows them. The hook is *enforcement*: it runs regardless of what any
+model decides, which is why the structural rules live there and the judgement calls
+do not.
+
+```text
+.claude/
+├── settings.json                    # wires the hook; committed, so the team shares it
+├── hooks/architecture_guard.py      # refuses root .py files, forbidden imports, …
+├── rules/
+│   ├── production-boundary.md       # loads when editing src/, pyproject, docker/
+│   ├── pipeline-nodes.md            # loads when editing pipelines/ or components/
+│   └── data-versioning.md           # loads when editing .dvc files or .gitignore
+└── skills/
+    ├── add-pipeline-node/           # add or rewire a DAG step
+    ├── sync-data/                   # datasets in and out of S3
+    ├── diagnose-tracking/           # why a run did not reach MLflow
+    └── debug-pipeline-cache/        # why results did not change
+```
+
+What the hook refuses, each with the alternative named:
+
+- a `.py` file at the repository root
+- `mlflow`, `dvc`, `streamlit`, `kfp`, `pipelines`, `tracking` or `viz` imported
+  under `src/`
+- `config.yaml`, `params.yaml`, `requirements.txt` reappearing
+- a `.gitkeep` inside `.data/` or `.models/`
+- one of the heavy dev packages added to `[project.dependencies]`
+
+It asks rather than refuses for two judgement calls: hand-editing a `.dvc` file,
+and giving a credential-shaped field a literal default. It fails open on anything
+it does not understand — a guard that blocks work when confused is worse than none.
+
+`tests/unit/test_architecture_guard.py` tests both directions, because a guard that
+starts blocking legitimate work gets switched off.
+
+---
+
 ## Quality gates
 
 ```bash

@@ -188,3 +188,30 @@ and `dvc add --file` was removed in DVC 2.0.
 
 **No default DVC remote.** `.dvc/config` leaves `core.remote` unset and each out pins
 its own, so a bare `dvc push` cannot send datasets to the models bucket.
+
+## The architecture defends itself
+
+Four mechanisms already enforce the production boundary — dependency groups, the
+Docker context, import-linter, and CI. A fifth sits earlier than all of them: a
+`PreToolUse` hook in `.claude/settings.json` that refuses the edit as it is made.
+
+That ordering is the point. import-linter tells you at `make imports`; CI tells you
+at the pull request; the hook tells you before the file is written, and hands back
+the rule rather than a stack trace. Same contract, four chances to learn it.
+
+The division of labour follows the Claude Code documentation's own distinction:
+
+- **`CLAUDE.md` and `.claude/rules/`** are context. Claude reads them and generally
+  follows them; they carry the *why*, which a guard cannot.
+- **The hook** is enforcement. It runs regardless of what any model decides, so it
+  carries only rules that are structural, statically decidable, and have an obvious
+  correct alternative.
+
+Anything needing judgement stays in the rules files. A guard that encodes taste
+produces false positives, and a guard with false positives gets disabled — at which
+point it protects nothing.
+
+The rules are path-scoped through `paths:` frontmatter, so they cost no context
+until Claude touches a matching file. `CLAUDE.md` stays under the 200-line budget
+that keeps adherence high, and the depth lives in the rules and skills that load on
+demand.
