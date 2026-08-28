@@ -10,8 +10,8 @@ FastAPI service for inference.
 
 | Where | What |
 |---|---|
-| **[EXECUTE.md](EXECUTE.md)** | Set the project up, run the pipeline, serve the model |
+| **[TEMPLATE_GUIDE.md](TEMPLATE_GUIDE.md)** | Set the project up, run the pipeline, serve the model |
 | [docs/architecture.md](docs/architecture.md) | Why the repository is shaped this way |
 | `make help` | Every command, with a one-line description |
 
-New here? Start with [EXECUTE.md](EXECUTE.md).
+New here? Start with [TEMPLATE_GUIDE.md](TEMPLATE_GUIDE.md).

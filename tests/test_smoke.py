@@ -55,7 +55,7 @@ def test_expected_directories_exist(project_root, directory: str) -> None:
     [
         "pyproject.toml",
         "README.md",
-        "EXECUTE.md",
+        "TEMPLATE_GUIDE.md",
         "CLAUDE.md",
         ".claude/settings.json",
         ".claude/hooks/architecture_guard.py",

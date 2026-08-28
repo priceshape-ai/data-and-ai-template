@@ -52,9 +52,9 @@ htmlcov/
 bootstrap.py
 TEMPLATE_README.md
 # README.md is NOT excluded: pyproject's `readme =` points at it, so the wheel
-# build needs it in the context. EXECUTE.md
+# build needs it in the context. TEMPLATE_GUIDE.md
 CLAUDE.md nothing reads at build time.
-EXECUTE.md
+TEMPLATE_GUIDE.md
 CLAUDE.md
 Makefile
 deploy/

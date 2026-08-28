@@ -2,9 +2,15 @@
 
 A PriceShape Data & AI project generated from `data-and-ai-template`.
 
-Read `EXECUTE.md` for how to run things and `docs/architecture.md` for why the
-repository is shaped this way. This file is the short version: the rules that are
-easy to break and expensive to unbreak.
+This file is the short version: the rules that are easy to break and expensive to
+unbreak. The detail lives in four places, and all of it is in the repository:
+
+| Where | What is in it |
+| --- | --- |
+| `TEMPLATE_GUIDE.md` | **22 task recipes** — add a step, add a dataset, run an experiment, build the container, run on the cluster. Start here for anything procedural. |
+| `docs/architecture.md` | Why the repository is shaped this way, and what each rule is defending. |
+| `.claude/skills/` | `add-pipeline-node`, `sync-data`, `diagnose-tracking`, `debug-pipeline-cache` — these surface themselves when the task matches. |
+| `.claude/rules/` | Deeper rules that load only when you touch matching files. |
 
 ## Commands
 
@@ -18,6 +24,26 @@ make help       # everything else
 
 Never invent a command. If it is not in `make help`, it is not how this project
 works.
+
+## Where a new file goes
+
+| What you are adding | Where |
+| --- | --- |
+| A pipeline step | `src/{{PACKAGE_NAME}}/components/` |
+| Its settings | `src/{{PACKAGE_NAME}}/config/hyperparameters.py` |
+| Wiring it into the graph | `pipelines/build.py` |
+| An LLM prompt | `src/{{PACKAGE_NAME}}/config/prompts/` |
+| Dataset loading | `src/{{PACKAGE_NAME}}/data/` |
+| An API endpoint | `src/{{PACKAGE_NAME}}/serving/` |
+| A view in the run explorer | `viz/app.py` |
+| A unit test | `tests/unit/` |
+| An end-to-end test | `tests/integration/` |
+| A one-off script | `scripts/` — create it if it is not there |
+| Exploration | `notebooks/` |
+| A decision worth keeping | `docs/architecture.md` |
+
+Nothing goes at the repository root, and nothing new goes in `engine/`. If a file
+seems to belong somewhere not on this list, say why before creating it.
 
 ## The one architectural rule
 
@@ -87,6 +113,9 @@ every later clone gets a `dvc pull` that fails on content that exists nowhere.
   reserved and every later run fails until it is restored.
 - **A cache hit is not a re-run.** If `make run` reports `[cache hit: disk]` for
   every node, nothing recomputed. Use `uv run pipeline --no-cache` to force one.
+- **Images go to the company registry, not GitHub's.** Tagged pushes land in ECR
+  via OIDC as `DataDevRole`, which needs `OIDC_ROLE_ARN` set as a repository or
+  organisation secret. Without it the build job fails at the login step.
 - **The git gate is real.** `make run` refuses a dirty or unpushed tree, because
   every MLflow run is tagged with a commit SHA. `--allow-dirty` for a scratch run.
 
