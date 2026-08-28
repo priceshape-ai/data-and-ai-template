@@ -1,6 +1,6 @@
 """The one KFP component that runs every node.
 
-`pipelines/dag.py` pickles each node's callable to object storage and compiles one
+`engine/dag.py` pickles each node's callable to object storage and compiles one
 task per node, all using this single generic body. So adding a node to the graph
 never means writing a new KFP component or rebuilding an image — which is the
 reason the same `build_pipeline()` can target local execution and Kubeflow
@@ -11,7 +11,7 @@ Two constraints shape this file, both from KFP lightweight components:
 1. **Every import is inside the function.** KFP ships only the function's source
    to the pod, so module-level imports here would not exist at run time. That is
    also why the S3 helpers are inlined rather than imported from
-   `pipelines/kubeflow/storage.py` — `pipelines/` is not in any image.
+   `engine/kubeflow/storage.py` — `engine/` is not in any image.
 
 2. **The base image must be able to unpickle the callable.** The pickle references
    `project_name.components...`, so the image needs the package installed. Point

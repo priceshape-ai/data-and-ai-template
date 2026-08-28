@@ -13,7 +13,7 @@ from collections import Counter
 
 import pytest
 
-from pipelines.dag import DAG, ItemCache, hash_value
+from engine.dag import DAG, ItemCache, hash_value
 from project_name.result import NodeResult
 
 CALLS: Counter[str] = Counter()

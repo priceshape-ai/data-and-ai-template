@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from pipelines.gitgate import DirtyRepoError, check_clean, git_metadata, is_git_repo
+from engine.gitgate import DirtyRepoError, check_clean, git_metadata, is_git_repo
 
 
 def _run(cwd: Path, *args: str) -> None:

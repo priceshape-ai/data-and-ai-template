@@ -218,7 +218,7 @@ class DAG:
         """Compile the graph to KFP and submit it. One pod per node.
 
         The node callables are pickled to object storage and a single generic
-        component (`pipelines/kubeflow/node_runner.py`) unpickles and runs them,
+        component (`engine/kubeflow/node_runner.py`) unpickles and runs them,
         so adding a node never means writing or rebuilding a KFP component.
         """
         try:
@@ -227,8 +227,8 @@ class DAG:
         except ImportError as exc:
             raise RuntimeError("kfp is not installed — run: uv sync --group orchestration") from exc
 
-        from pipelines.kubeflow.node_runner import node_runner_body
-        from pipelines.kubeflow.storage import s3_upload
+        from engine.kubeflow.node_runner import node_runner_body
+        from engine.kubeflow.storage import s3_upload
 
         ts = _timestamp()
         run_prefix = f"runs/{ts}"

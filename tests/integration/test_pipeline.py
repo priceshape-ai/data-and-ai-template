@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import dataclasses
 
+from engine.dag import DAG
+from engine.tracking import collect_metrics
 from pipelines.build import build_pipeline
-from pipelines.dag import DAG
 from project_name.config import CONFIG
 from project_name.result import NodeResult
-from tracking.mlflow_logger import collect_metrics
 
 
 def _dag(tmp_path) -> DAG:

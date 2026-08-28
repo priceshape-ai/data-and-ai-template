@@ -5,7 +5,7 @@ description: Add, remove, or rewire a step in this project's pipeline DAG — a 
 
 # Adding a node to the pipeline
 
-The DAG engine is generic, so a new node needs **no change to `pipelines/dag.py`**.
+The DAG engine is generic, so a new node needs **no change to `engine/dag.py`**.
 Three files, in this order.
 
 ## 1. The component — `src/{{PACKAGE_NAME}}/components/<name>.py`

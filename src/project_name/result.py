@@ -1,8 +1,8 @@
 """The value every DAG node returns.
 
 A single shared shape is what lets the generic machinery work without knowing
-anything about a particular project: `pipelines/dag.py` writes a JSONL trace for
-any node returning per-item results, and `tracking/mlflow_logger.py` records
+anything about a particular project: `engine/dag.py` writes a JSONL trace for
+any node returning per-item results, and `engine/tracking.py` records
 whatever lands in `metrics`. A node that returns something else still runs — it
 just gets no trace and no metrics.
 """

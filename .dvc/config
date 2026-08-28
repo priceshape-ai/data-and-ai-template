@@ -11,9 +11,14 @@
     # reflink where the filesystem supports it (APFS, XFS, btrfs), copy elsewhere.
     # Avoids a second full copy of multi-gigabyte datasets in .dvc/cache.
     type = "reflink,copy"
+# The trailing segment names the DATASET VARIANT, and it is the one part of these
+# URLs you may want to change. `closed-world` is what taxonomy-engine,
+# products-matcher, ai-pricing and datasets-visualization-tool all use, so it is
+# the default; a project with a different variant (or several) renames it here and
+# runs `make dvc-pull` again.
 ['remote "datasets"']
-    url = s3://priceshape-datasets/project-name
+    url = s3://priceshape-datasets/project-name/closed-world
     region = eu-central-1
 ['remote "models"']
-    url = s3://priceshape-models/project-name
+    url = s3://priceshape-models/project-name/closed-world
     region = eu-central-1

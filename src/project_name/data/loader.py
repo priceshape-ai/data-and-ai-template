@@ -31,7 +31,7 @@ _SAMPLE: list[dict[str, Any]] = [
 class DatasetLoader:
     """Reads a JSONL dataset from `.data/`, falling back to a built-in sample.
 
-    Node configs are held on `self.cfg` and nowhere else. `pipelines/dag.py`
+    Node configs are held on `self.cfg` and nowhere else. `engine/dag.py`
     fingerprints `vars(self)` to decide whether a cached result is still valid,
     so anything stored on the instance must be cheap and JSON-representable —
     load models lazily inside `__call__`, never in `__init__`.

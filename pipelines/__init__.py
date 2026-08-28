@@ -1,6 +1,8 @@
-"""Pipeline orchestration. Development only — never present in the production image.
+"""The graph. One file: `build.py`, where this project's pipeline is defined.
 
-This root exists outside src/ so the separation is physical: docker/Dockerfile
-copies only src/, and .dockerignore excludes this directory outright. It is still
-a first-class importable package locally, via `dev-mode-dirs` in pyproject.toml.
+Deliberately the only thing in this package. The engine that runs the graph lives
+in `engine/`, so opening this directory to change the pipeline does not put you
+beside a scheduler you did not come for.
+
+Development only — never present in the production image.
 """

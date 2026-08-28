@@ -23,7 +23,7 @@ import argparse
 import logging
 import sys
 
-from pipelines.kubeflow.storage import ensure_bucket, s3_sync_up
+from engine.kubeflow.storage import ensure_bucket, s3_sync_up
 from project_name.config import CONFIG
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")

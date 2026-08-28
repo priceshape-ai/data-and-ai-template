@@ -3,7 +3,7 @@
 Two properties worth keeping as this grows:
 
 **It is a pure function of its arguments.** Provenance tags are passed in, not
-gathered here — `pipelines/gitgate.py` owns the git introspection. So this module
+gathered here — `engine/gitgate.py` owns the git introspection. So this module
 never shells out, and a test can assert exactly what would be logged.
 
 **It never raises.** A tracking-server outage must not destroy a pipeline run that

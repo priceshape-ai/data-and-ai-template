@@ -14,9 +14,9 @@ import argparse
 import logging
 import sys
 
+from engine.dag import DAG
+from engine.gitgate import DirtyRepoError, check_clean, git_metadata
 from pipelines.build import build_pipeline
-from pipelines.dag import DAG
-from pipelines.gitgate import DirtyRepoError, check_clean, git_metadata
 from project_name.config import CONFIG
 
 logger = logging.getLogger(__name__)
@@ -102,7 +102,7 @@ def _record(timestamp: str, results: dict, backend: str) -> None:
         logger.info("MLFLOW_TRACKING_URI is unset — skipping run logging.")
         return
     try:
-        from tracking.mlflow_logger import log_run
+        from engine.tracking import log_run
     except ImportError:
         logger.warning(
             "mlflow is not installed — skipping run logging. "

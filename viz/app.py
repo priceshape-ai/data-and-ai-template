@@ -3,7 +3,7 @@
     make viz            # newest run
     make viz RUN=2026-08-20T09-14-02
 
-Reads only what `pipelines/dag.py` wrote under `runs/<timestamp>/` — the graph,
+Reads only what `engine/dag.py` wrote under `runs/<timestamp>/` — the graph,
 each node's cache status, and the per-item JSONL traces. It never imports the DAG
 or re-executes anything, so it stays usable while a pipeline is running and cannot
 corrupt a run by being opened.

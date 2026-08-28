@@ -29,11 +29,12 @@ def test_config_singleton() -> None:
 @pytest.mark.parametrize(
     "module",
     [
-        "pipelines.dag",
+        "engine.dag",
         "pipelines.build",
-        "pipelines.runner",
-        "pipelines.gitgate",
-        "tracking.mlflow_logger",
+        "engine.runner",
+        "engine.gitgate",
+        "engine.tracking",
+        "engine.kubeflow.node_runner",
     ],
 )
 def test_dev_roots_are_importable(module: str) -> None:
@@ -43,7 +44,7 @@ def test_dev_roots_are_importable(module: str) -> None:
 
 @pytest.mark.parametrize(
     "directory",
-    ["src", "pipelines", "tracking", "viz", "tests", "docker", "deploy", "docs"],
+    ["src", "engine", "pipelines", "viz", "tests", "docker", "deploy", "docs"],
 )
 def test_expected_directories_exist(project_root, directory: str) -> None:
     assert (project_root / directory).is_dir(), f"missing directory: {directory}"
@@ -62,7 +63,7 @@ def test_expected_directories_exist(project_root, directory: str) -> None:
         ".env.example",
         ".dvcignore",
         ".dockerignore",
-        "scripts/dvc_sync.py",
+        "engine/dvc_sync.py",
         "docker/Dockerfile",
     ],
 )

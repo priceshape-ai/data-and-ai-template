@@ -10,7 +10,7 @@ starts.
 
 from __future__ import annotations
 
-from pipelines.dag import DAG
+from engine.dag import DAG
 from project_name.components import Featurizer, Scorer
 from project_name.config import Config
 from project_name.data import DatasetLoader

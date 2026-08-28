@@ -8,12 +8,12 @@ paths:
 # The production boundary
 
 You are editing code that ships. `src/` is what the wheel contains and what the
-container runs; `pipelines/`, `tracking/` and `viz/` are development-only roots that
+container runs; `engine/`, `pipelines/` and `viz/` are development-only roots that
 are in neither.
 
 ## Forbidden imports under `src/`
 
-`mlflow`, `dvc`, `streamlit`, `kfp`, and the `pipelines` / `tracking` / `viz`
+`mlflow`, `dvc`, `streamlit`, `kfp`, and the `engine` / `pipelines` / `viz`
 packages. Four mechanisms catch a violation, in the order they fire:
 
 1. A `PreToolUse` hook refuses the edit as you make it.

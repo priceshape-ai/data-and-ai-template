@@ -4,7 +4,7 @@ Named `hyperparameters.py` to match `taxonomy-engine` and `ai-productsmatcher`, 
 like theirs it holds the infrastructure sections too — paths, MLflow, Kubeflow,
 serving — alongside the actual hyperparameters. The distinction is not lost: only
 the hyperparameter sections reach MLflow as params, because
-`tracking/mlflow_logger.py` drops the rest via `_SKIP_SECTIONS`. An endpoint URL is
+`engine/tracking.py` drops the rest via `_SKIP_SECTIONS`. An endpoint URL is
 not a hyperparameter, and logging it would make one experiment run from two
 machines look like two different configurations.
 
@@ -16,7 +16,7 @@ the values are navigable from the code that uses them.
 Each node config carries its own `NodeResources`. That is what lets one DAG
 definition compile to both a local run (where resources are ignored) and a
 Kubeflow pipeline (where they become the pod's resource requests) — see
-`pipelines/dag.py`.
+`engine/dag.py`.
 
 `load_dotenv()` is called here, before CONFIG is built, rather than in the
 entrypoint. CONFIG is a module-level singleton, so any entrypoint that imports it

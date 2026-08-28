@@ -48,7 +48,7 @@ def is_git_repo(cwd: Path | None = None) -> bool:
 def git_metadata(cwd: Path | None = None) -> dict[str, str]:
     """Provenance tags for the MLflow run. Empty dict outside a repository.
 
-    Git introspection lives here rather than in `tracking/` so that the MLflow
+    Git introspection lives here rather than in `engine/tracking.py` so that the MLflow
     logger stays a pure function of its arguments — it records the tags it is
     handed and never shells out.
     """

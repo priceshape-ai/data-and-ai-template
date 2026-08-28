@@ -10,14 +10,18 @@ on:
   workflow_dispatch:
 
 env:
-  REGISTRY: ghcr.io
+  # The company registry, and the role that reaches it. Every other PriceShape
+  # repository pushes here — ai-productsmatcher, mlflow, poc-hybridsearch and
+  # others — and it is where the cluster pulls from. OIDC_ROLE_ARN is an
+  # organisation secret that resolves to DataDevRole; nothing is stored in the repo.
+  AWS_REGION: eu-central-1
+  REGISTRY: 626635402249.dkr.ecr.eu-central-1.amazonaws.com
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
       id-token: write
 
     steps:
@@ -26,17 +30,23 @@ jobs:
       - name: Derive image name
         id: meta
         run: |
-          # Lowercased owner/repo — registries reject uppercase in a path.
-          echo "image=${REGISTRY}/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+          # The repository name alone — ECR repositories are flat, not owner/name.
+          # Lowercased because registries reject uppercase in a path.
+          echo "image=${REGISTRY}/$(echo '${{ github.event.repository.name }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
           echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - uses: docker/setup-buildx-action@v4
 
-      - uses: docker/login-action@v4
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Registry login
+        run: |
+          aws ecr get-login-password --region "$AWS_REGION" \
+            | docker login --username AWS --password-stdin "$REGISTRY"
 
       - name: Build
         uses: docker/build-push-action@v7
@@ -54,7 +64,7 @@ jobs:
       - name: Verify the image carries no dev-only code
         run: |
           image="${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}"
-          for module in mlflow dvc streamlit kfp pipelines tracking viz; do
+          for module in mlflow dvc streamlit kfp engine pipelines viz; do
             if docker run --rm --entrypoint python "$image" -c "import ${module}" 2>/dev/null; then
               echo "::error::${module} is present in the production image"
               exit 1

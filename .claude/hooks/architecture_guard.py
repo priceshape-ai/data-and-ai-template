@@ -29,7 +29,7 @@ from pathlib import Path
 
 # Dev-only roots and the third-party packages that come with them. src/ importing
 # any of these is what the import-linter contract forbids; this catches it earlier.
-FORBIDDEN_IN_SRC = ("mlflow", "dvc", "streamlit", "kfp", "pipelines", "tracking", "viz")
+FORBIDDEN_IN_SRC = ("mlflow", "dvc", "streamlit", "kfp", "engine", "pipelines", "viz")
 
 _IMPORT_RE = re.compile(
     r"^\s*(?:import|from)\s+(" + "|".join(FORBIDDEN_IN_SRC) + r")\b",
@@ -149,10 +149,10 @@ def check(path_text: str, content: str) -> None:
                 f"runs, and {offender} is not installed there — this would fail at "
                 "import time in the image, not here.\n\n"
                 "Where it belongs instead:\n"
-                "  mlflow      tracking/\n"
-                "  kfp         pipelines/kubeflow/\n"
+                "  mlflow      engine/tracking.py\n"
+                "  kfp         engine/kubeflow/\n"
                 "  streamlit   viz/\n"
-                "  dvc         scripts/, or a make target\n\n"
+                "  dvc         engine/dvc_sync.py, or a make target\n\n"
                 "If production genuinely needs this behaviour, move the code into "
                 "src/ rather than relaxing the boundary. `make imports` enforces the "
                 "same contract."

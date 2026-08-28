@@ -50,7 +50,8 @@ def decide(file_path: str, content: str, tool: str = "Write") -> str:
         (".data/raw/.gitkeep", ""),
         (".models/.gitkeep", ""),
         ("src/project_name/components/scorer.py", "import mlflow\n"),
-        ("src/project_name/serving/app.py", "from pipelines.dag import DAG\n"),
+        ("src/project_name/serving/app.py", "from engine.dag import DAG\n"),
+        ("src/project_name/serving/app.py", "from pipelines.build import build_pipeline\n"),
         ("src/project_name/data/loader.py", "import dvc.api\n"),
         ("pyproject.toml", 'dependencies = [\n  "streamlit",\n]\n[dependency-groups]\n'),
     ],
@@ -63,12 +64,13 @@ def test_structural_violations_are_denied(path: str, content: str) -> None:
     ("path", "content"),
     [
         # Dev-only tooling in the roots that exist to hold it.
-        ("tracking/mlflow_logger.py", "import mlflow\n"),
+        ("engine/tracking.py", "import mlflow\n"),
         ("viz/app.py", "import streamlit as st\n"),
-        ("pipelines/kubeflow/node_runner.py", "import kfp\n"),
-        ("pipelines/dag.py", "from tracking.mlflow_logger import log_run\n"),
+        ("engine/kubeflow/node_runner.py", "import kfp\n"),
+        ("engine/dag.py", "from engine.tracking import log_run\n"),
         ("tests/unit/test_tracking_contract.py", "import mlflow\n"),
-        ("scripts/dvc_sync.py", "import subprocess\n"),
+        ("engine/dvc_sync.py", "import subprocess\n"),
+        ("pipelines/build.py", "from engine.dag import DAG\n"),
         # Ordinary production code.
         ("src/project_name/components/ranker.py", "import numpy as np\n"),
         # Prose that merely mentions a forbidden package.

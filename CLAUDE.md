@@ -24,15 +24,18 @@ works.
 **Production is one directory: `src/{{PACKAGE_NAME}}/`.** That is what the wheel
 contains and what the container runs. Three other roots exist and none of them ship:
 
-| Root | Ships? | Holds |
-| --- | :---: | --- |
-| `src/{{PACKAGE_NAME}}/` | yes | components, data loading, config, the FastAPI service |
-| `pipelines/` | no | the DAG engine, the graph definition, the Kubeflow backend |
-| `tracking/` | no | MLflow run logging |
-| `viz/` | no | the Streamlit run explorer |
+| Root | Ships? | Holds | You edit it? |
+| --- | :---: | --- | --- |
+| `src/{{PACKAGE_NAME}}/` | yes | components, data loading, config, the FastAPI service | constantly |
+| `pipelines/` | no | `build.py` — the graph, and nothing else | constantly |
+| `viz/` | no | the Streamlit run explorer | often |
+| `engine/` | no | DAG engine, runner, git gate, MLflow logging, DVC sync, Kubeflow backend | almost never |
 
-So `src/` must never import `mlflow`, `dvc`, `streamlit`, `kfp`, `pipelines`,
-`tracking` or `viz`. `make imports` fails with the exact import chain if it does,
+`engine/` is machinery. The one part of it worth opening is `engine/kubeflow/`,
+which decides how a run becomes cluster tasks.
+
+So `src/` must never import `mlflow`, `dvc`, `streamlit`, `kfp`, `engine`,
+`pipelines` or `viz`. `make imports` fails with the exact import chain if it does,
 and a `PreToolUse` hook refuses the edit before that. Dev code importing `src/` is
 the correct direction and is always fine.
 
@@ -61,7 +64,7 @@ and its upstream nodes' keys. Two consequences that bite:
   part of the cache key, so a loaded model in `__init__` is both slow and wrong.
 
 Define the graph in `pipelines/build.py`. Adding a node needs no change to
-`dag.py` — use the `add-pipeline-node` skill.
+`engine/dag.py` — use the `add-pipeline-node` skill.
 
 ## Data and models
 

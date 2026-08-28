@@ -10,14 +10,13 @@ artifacts/
 
 # ── Dev-only roots. These are what keeps them out of the image even if
 #    someone changes the Dockerfile's COPY lines. ─────────────────────────
+engine/
 pipelines/
-tracking/
 viz/
 notebooks/
 tests/
 docs/
 reports/
-scripts/
 
 # ── Run outputs & caches ────────────────────────────────────────────────
 .dag_cache/

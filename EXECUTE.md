@@ -87,34 +87,50 @@ a fresh clone works before you have data or S3 credentials.
 
 ## Layout
 
+Two-thirds of the code here is machinery you will never open. It lives in one
+directory so the rest is obviously yours.
+
 ```text
 {{PROJECT_NAME}}/
+│
+│  ── you work here ──────────────────────────────────────────────
 ├── src/{{PACKAGE_NAME}}/      # PRODUCTION. The only thing in the wheel and the image.
-│   ├── config/                # all configuration: frozen dataclasses
-│   ├── components/            # one module per pipeline step
+│   ├── components/            # one module per pipeline step   ← your steps
+│   ├── config/                # frozen dataclasses             ← your settings
 │   ├── data/                  # dataset loading
 │   ├── serving/               # the FastAPI service
 │   └── result.py              # NodeResult, the value every node returns
-├── pipelines/                 # DEVELOPMENT. The DAG engine and its backends.
-│   ├── dag.py                 # engine: local cache + Kubeflow compilation
-│   ├── build.py               # ← the graph definition. Start here.
-│   ├── runner.py              # `uv run pipeline`
-│   ├── gitgate.py             # refuses runs that could not be reproduced
-│   └── kubeflow/              # the KFP backend
-├── tracking/                  # DEVELOPMENT. MLflow run logging.
-├── viz/                       # DEVELOPMENT. Streamlit run explorer.
+├── pipelines/
+│   └── build.py               # ← THE GRAPH. The one file here. Start here.
+├── viz/app.py                 # the Streamlit run explorer
+├── notebooks/                 # exploration
 ├── tests/{unit,integration}/
+│
+│  ── machinery: you will not open these ────────────────────────
+├── engine/
+│   ├── dag.py                 # the engine: local cache + Kubeflow compilation
+│   ├── runner.py              # what `uv run pipeline` calls
+│   ├── gitgate.py             # refuses runs that could not be reproduced
+│   ├── tracking.py            # MLflow run logging
+│   ├── dvc_sync.py            # what `make dvc-pull` calls
+│   └── kubeflow/              # how a run becomes cluster tasks
+│
+│  ── occasionally ───────────────────────────────────────────────
 ├── docker/Dockerfile          # multi-stage, production dependencies only
 ├── deploy/manifests/          # Kubernetes Deployment and Service
 ├── .data/  .models/           # DVC-tracked, git-ignored wholesale
 ├── .data.dvc  .models.dvc     # DVC pointers — created by `make dvc-pull`, then committed
-└── notebooks/  scripts/  docs/  reports/
+└── docs/
 ```
+
+`engine/` is the one directory you can ignore. The single part of it worth knowing
+about is `engine/kubeflow/`, which decides how a run is assembled into cluster
+tasks — see [Running on the cluster](#running-on-the-cluster).
 
 Two things about this shape are load-bearing.
 
 **Production is one directory.** `src/{{PACKAGE_NAME}}/` is what a built wheel
-contains and therefore what the container runs. `pipelines/`, `tracking/` and
+contains and therefore what the container runs. `pipelines/`, `engine/` and
 `viz/` sit outside it, so MLflow, DVC, Streamlit and the Kubeflow SDK cannot reach
 production by accident — they are not in the image at all. When you need to know
 what runs in production, there is one place to look.
@@ -130,6 +146,370 @@ business rather than git's, and hiding them keeps the project root about the cod
 The trade-off is that a plain `ls` and Jupyter's file browser filter them out, so
 reach for `ls -a`, and set `c.ContentsManager.allow_hidden = True` in your Jupyter
 config to browse them from a notebook.
+
+---
+
+## How to work here
+
+Recipes, not a tour. Every one of these is a real procedure against this
+repository — if a command is not here or in `make help`, it is not how this
+project works.
+
+### Add a step to the pipeline
+
+Three files, in this order. The engine is generic, so `engine/dag.py` never
+changes.
+
+**1. The step** — `src/{{PACKAGE_NAME}}/components/ranker.py`
+
+```python
+class Ranker:
+    def __init__(self, cfg: RankerConfig) -> None:
+        self.cfg = cfg  # config only, nothing heavy
+
+    def __call__(self, featurize: NodeResult) -> NodeResult:
+        model = _load(self.cfg.model_name)  # lazily, on first call
+        ...
+        return NodeResult(items=ranked, metrics={"mean_rank": float(mean)})
+```
+
+The parameter name (`featurize`) must match the upstream step's name. A mismatch
+is a `TypeError` on the first run, not a silent wrong answer.
+
+**2. Its settings** — `src/{{PACKAGE_NAME}}/config/hyperparameters.py`
+
+```python
+@dataclass(frozen=True)
+class RankerConfig:
+    model_name: EmbeddingModel = "BAAI/bge-m3"
+    top_k: int = 10
+    resources: NodeResources = field(
+        default_factory=lambda: NodeResources(cpu_request="2", memory_request="8G")
+    )
+```
+
+Then add `ranker: RankerConfig = field(default_factory=RankerConfig)` to `Config`.
+
+**3. The wiring** — `pipelines/build.py`
+
+```python
+rank = dag.add_node("rank", Ranker(config.ranker), depends_on=featurize)
+```
+
+Then `make check && uv run pipeline`. Everything downstream recomputes on its own.
+
+Two rules the cache imposes, both non-negotiable: **never write to `self`**, and
+**never load a model in `__init__`**. Instance state is part of the cache key.
+
+### See the step in the graph
+
+```bash
+make viz                                 # newest run
+make viz RUN=2026-08-20T09-14-02         # a specific one
+```
+
+The explorer draws the graph with each step coloured by whether it recomputed or
+came from cache, lists every step with its status and timing, and lets you page
+through the per-item traces. Each run also writes `runs/<timestamp>/` on disk —
+the graph, the statuses, and one JSONL trace per step — which is what the explorer
+reads and what MLflow uploads.
+
+### Work out why nothing changed
+
+If the log says `[cache hit: disk]` for the step you edited, it did not run.
+
+A step's key hashes its `__call__` bytecode, its instance state, and its upstream
+keys. Three kinds of change are invisible to that:
+
+- editing a data file **in place** — the loader's `source` path did not change, so
+  it keeps its key. Rename the file, or use `--no-cache`.
+- changing a helper module the step imports but does not hold on `self`.
+- an environment variable read inside `__call__`.
+
+```bash
+uv run pipeline --no-cache     # recompute everything
+rm -rf .dag_cache              # or discard the cache entirely
+```
+
+The opposite symptom — a step that recomputes every time despite no edits — means
+it is mutating `self`.
+
+### Add a view to the explorer
+
+`viz/app.py` is a normal Streamlit app and yours to extend. It reads only
+`runs/<timestamp>/`, never the pipeline itself, which is why it can stay outside
+the production package and import `streamlit` freely.
+
+To surface a new number: have the step put it in `NodeResult.metrics`, then read
+it from the run's status file in `viz/app.py`. Metrics flow to three places at
+once — the explorer, MLflow, and `runs/`— so adding one there covers all three.
+
+Run it against any past run with `make viz RUN=<timestamp>`; two terminals give
+you two runs side by side.
+
+### Record an experiment
+
+Every run is logged automatically: hyperparameters as params, every step's
+`NodeResult.metrics` as `<step>.<metric>`, git provenance as tags, and the whole
+of `runs/<timestamp>/` as artefacts — traces included.
+
+Deliberately **not** logged: paths, MLflow, Kubeflow and serving settings. Those
+differ between machines, and logging them would make one experiment run from two
+laptops look like two configurations.
+
+To add a number, return it in a step's `metrics`. Nothing else to wire.
+
+```bash
+uv run pipeline                # logged
+uv run pipeline --no-cache     # logged, and actually recomputed
+```
+
+The git gate is what makes a run worth comparing later: it refuses a dirty or
+unpushed tree, because the run is tagged with a commit SHA and that SHA has to
+reproduce it. `--allow-dirty` runs anyway and tags `git.dirty=true`, so the record
+stays honest.
+
+Point `MLFLOW_TRACKING_URI` at the server first — the browser URL is **not** the
+API URL. See the `diagnose-tracking` skill, or [Tracking](#tracking) below.
+
+### Compare two runs
+
+Change one thing, run, and compare in MLflow — the params show exactly what
+differed, because every hyperparameter is logged and nothing else is. Keep the
+change in a commit: `git commit` before the run, and the SHA on the run points at
+the exact configuration that produced it.
+
+An ablation is the same loop with a step disabled: comment out its `add_node` line
+in `pipelines/build.py`, and everything downstream recomputes without it.
+
+### Set up data for the first time
+
+```bash
+make dvc-pull
+```
+
+One command for every situation. It looks at this project's prefix in each bucket
+and does what fits: pulls if the pointers are committed, downloads and starts
+tracking if someone staged plain files there, tracks what is already in `.data/`,
+or creates both directories if there is nothing anywhere.
+
+Credentials come from `AWS_PROFILE=data`, which assumes `DataDevRole` — the role
+that grants access to both buckets. Set it in `.env` or export it.
+
+The paths are `s3://priceshape-datasets/{{PROJECT_NAME}}/closed-world` and
+`s3://priceshape-models/{{PROJECT_NAME}}/closed-world`. That last segment names the
+dataset variant and is the one part you may want to change; it is a single
+commented line in `.dvc/config`.
+
+### Add a dataset
+
+```bash
+cp ~/new-data.jsonl .data/raw/
+# point the loader at it in config/hyperparameters.py:
+#   source: str = "raw/new-data.jsonl"
+make dvc-add                              # re-hash
+make dvc-push                             # upload — BEFORE committing
+git add .data.dvc src/*/config/hyperparameters.py && git commit && git push
+```
+
+**Push before you commit the pointer.** The `.dvc` file records hashes; the
+content only reaches S3 via `make dvc-push`. Commit first and every later clone
+gets a `dvc pull` that fails on content that exists nowhere.
+
+Changing `source` changes the loader's cache key, so the whole pipeline recomputes
+by itself.
+
+### Work with several datasets
+
+Add a **second loading step**, not a bigger config:
+
+```python
+# hyperparameters.py
+train: LoaderConfig = field(default_factory=lambda: LoaderConfig(source="raw/train.jsonl"))
+eval: LoaderConfig = field(default_factory=lambda: LoaderConfig(source="raw/eval.jsonl"))
+
+# pipelines/build.py
+train = dag.add_node("train", DatasetLoader(config.train))
+evalset = dag.add_node("eval", DatasetLoader(config.eval))
+score = dag.add_node("score", Scorer(config.scorer), depends_on=[featurize, evalset])
+```
+
+Each dataset then gets its own cache key and its own history, so swapping one does
+not invalidate work that depended on the other. A step that needs both names both
+in `__call__`.
+
+DVC still tracks `.data/` as one tree — one pointer, one push, all datasets
+versioned together.
+
+### Go back to an earlier dataset
+
+```bash
+git checkout HEAD~1 -- .data.dvc && make dvc-pull
+```
+
+`dvc push` adds objects rather than replacing them, so every version you pushed is
+still there. Restore the pointer and the content follows.
+
+### Add a dependency
+
+One question decides where it goes: **does `docker/Dockerfile` need it to serve a
+request?**
+
+```bash
+uv add numpy                    # yes → [project.dependencies], ships
+uv add --group dev pytest-xdist # no  → a dependency group, never in the image
+```
+
+Groups are never installed by `pip install .` and never reach the image. The guard
+refuses `mlflow`, `dvc`, `streamlit` or `kfp` in the production list — `dvc` alone
+pulls in about sixty packages a serving API never calls.
+
+### Build the container
+
+```bash
+make docker-build      # build it
+make docker-verify     # build, then prove no dev tooling got in
+make docker-run        # run it locally
+```
+
+The image is multi-stage and contains `src/` and nothing else — no `engine/`, no
+`pipelines/`, no `viz/`, and none of the dev-only packages. `make docker-verify`
+asserts exactly that, and CI runs the same check before any tag is pushed.
+
+Model weights are **not** baked in. They arrive at `/app/.models` by mount or sync
+at startup, so changing a model is a restart rather than a rebuild.
+
+Tagged pushes go to `626635402249.dkr.ecr.eu-central-1.amazonaws.com`, the registry
+the cluster pulls from, authenticated through OIDC as `DataDevRole`. That needs
+`OIDC_ROLE_ARN` set as a repository or organisation secret.
+
+### When you need a second image
+
+Usually you do not. Three cases, in order of how often they come up:
+
+**Different processor targets** — one Dockerfile, a build argument. This is how
+`ai-productsmatcher` ships a ~700 MB CPU image and a ~7 GB GPU image from one
+recipe:
+
+```dockerfile
+ARG COMPUTE=gpu
+RUN if [ "$COMPUTE" = "cpu" ]; then \
+        pip install torch --index-url https://download.pytorch.org/whl/cpu; \
+    else pip install torch; fi
+```
+
+Then a second workflow with `--build-arg COMPUTE=cpu` and a `cpu-` tag prefix.
+
+**The cluster's base image** — you do not need one. Point `KUBEFLOW_BASE_IMAGE` at
+this project's own production image: it already contains `src/`, which is exactly
+what a pod needs to unpickle the steps.
+
+**A genuinely separate service** — a second `docker/Dockerfile.<name>` and a second
+workflow. Reach for this only when it serves different traffic, not to slim an
+image.
+
+### Run the same graph on the cluster
+
+```bash
+uv run pipeline --backend kubeflow
+```
+
+Nothing about the graph changes — that is the whole design. The engine pickles each
+step, uploads it, and compiles one task per step, all sharing one generic runner.
+Adding a step never means writing a cluster component.
+
+Set `KUBEFLOW_ENDPOINT` and the bucket settings in `.env`. With the endpoint empty
+the run stays local, and `--backend auto` picks whichever applies.
+
+Where each kind of change lives:
+
+| What you want to change | Where |
+| --- | --- |
+| The steps and their order | `pipelines/build.py` — same file as a local run |
+| A step's CPU, memory, GPU, node pool | its `NodeResources`, in `hyperparameters.py` |
+| Endpoint, experiment, bucket, base image | `.env` |
+| How a run is assembled into tasks | `engine/kubeflow/` |
+
+### Give a step more memory or a GPU
+
+Beside its other settings, not in a separate manifest:
+
+```python
+resources: NodeResources = field(
+    default_factory=lambda: NodeResources(
+        cpu_request="8",
+        memory_request="32G",
+        accelerator_type="nvidia.com/gpu",
+        accelerator_limit=1,
+        node_pool="gpu",
+    )
+)
+```
+
+Ignored on local runs; on the cluster it becomes the pod's request. That is what
+lets one graph definition serve both backends.
+
+### Give a step its own container — not supported yet
+
+Every step in a run shares one image, `KUBEFLOW_BASE_IMAGE`. `NodeResources` covers
+processor, memory and node pool but **not** the image, so a single step cannot ask
+for its own.
+
+The workaround is to put the extra dependency in the production image. If that is
+ever the wrong answer, the change is small and lives in two places: a new field on
+`NodeResources`, and the branch in `engine/dag.py` that builds each task.
+
+### Deploy the service
+
+`deploy/manifests/` holds a Deployment and a Service. Before applying them, the
+image tag has to exist in the registry — push a tag and let the build workflow run.
+The Deployment mounts model weights at `/app/.models`; the two health probes must
+stay pointed at their own endpoints, `/livez` for liveness and `/healthz` for
+readiness.
+
+### Add an API endpoint
+
+`src/{{PACKAGE_NAME}}/serving/app.py`, with the inference logic in
+`inference.py` beside it. This is production code, so the boundary applies: no
+`mlflow`, no `dvc`, no `streamlit`, no `kfp`. Add a test in
+`tests/integration/test_api.py`.
+
+Keep `/livez` and `/healthz` distinct. The model loads on a background thread so
+the port binds immediately; pointing a liveness probe at readiness makes Kubernetes
+restart the pod part-way through every slow load.
+
+### Add a test
+
+| What you are testing | Where |
+| --- | --- |
+| A step, the engine, config, the explorer | `tests/unit/` |
+| The pipeline end to end, the API | `tests/integration/` |
+| The layout and the boundary itself | `tests/test_smoke.py` |
+
+`make check` runs lint, types, the import boundary and the suite. Run it before
+calling anything done — the four catch different things.
+
+### Tracking
+
+`MLFLOW_TRACKING_URI` decides everything. The browser URL is **not** the API URL:
+`mlflow.data.priceshape.io` sits behind an SSO proxy that answers API calls with an
+HTML login page, and no username or password gets through it.
+
+```bash
+# From a Kubeflow pod — in-cluster, no auth needed
+MLFLOW_TRACKING_URI=http://mlflow.mlflow.svc.cluster.local
+
+# From a laptop. The server enforces a Host allowlist, so the hostname must
+# survive the tunnel — map it to localhost for the session.
+sudo sh -c 'echo "127.0.0.1 mlflow.data.priceshape.io" >> /etc/hosts'
+kubectl port-forward -n mlflow svc/mlflow 5000:80
+MLFLOW_TRACKING_URI=http://mlflow.data.priceshape.io:5000
+```
+
+Leave it empty and the pipeline still runs, just unrecorded. If a run fails to log,
+the warning says which of the three usual causes it was — SSO proxy, rejected
+credential, or an experiment someone deleted in the UI (which only soft-deletes it
+and keeps the name reserved).
 
 ---
 
@@ -301,7 +681,7 @@ sit in the repository root because a `.dvc` file has to live beside what it trac
 — DVC does not support pointing one at a parent directory, and `dvc add --file` was
 removed in DVC 2.0.
 
-There is no `dvc.yaml`. `pipelines/dag.py` is the pipeline; DVC does artefact
+There is no `dvc.yaml`. `engine/dag.py` is the pipeline; DVC does artefact
 versioning only. Two DAG engines in one repository is a maintenance tax with no
 payoff.
 

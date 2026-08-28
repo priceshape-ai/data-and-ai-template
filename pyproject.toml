@@ -66,7 +66,7 @@ viz = [
 ]
 orchestration = [
     "kfp>=2.7",
-    "boto3>=1.34",          # pipelines/kubeflow/storage.py
+    "boto3>=1.34",          # engine/kubeflow/storage.py
 ]
 notebook = [
     "ipykernel>=6.29",
@@ -101,7 +101,7 @@ dev-mode-dirs = [".", "src"]
 serve = "project_name.serving.app:run"
 # Development only. Resolves from an editable install, via dev-mode-dirs above;
 # it is deliberately absent from the production image.
-pipeline = "pipelines.runner:main"
+pipeline = "engine.runner:main"
 
 # ── Tooling ───────────────────────────────────────────────────────────────────
 [tool.ruff]
@@ -136,7 +136,7 @@ ignore_missing_imports = true
 # docs/architecture.md describes this boundary; these contracts are what actually
 # hold it. `make lint` and CI both run `lint-imports`.
 [tool.importlinter]
-root_packages = ["project_name", "pipelines", "tracking", "viz"]
+root_packages = ["project_name", "pipelines", "engine", "viz"]
 # Required because the contracts below forbid third-party packages (mlflow, dvc,
 # streamlit, kfp), not just internal ones.
 include_external_packages = true
@@ -150,13 +150,13 @@ forbidden_modules = [
     "dvc",
     "streamlit",
     "kfp",
+    "engine",
     "pipelines",
-    "tracking",
     "viz",
 ]
 
 [[tool.importlinter.contracts]]
 name = "The MLflow logger stays independent of the DAG engine"
 type = "forbidden"
-source_modules = ["tracking"]
-forbidden_modules = ["pipelines", "viz", "kfp", "streamlit"]
+source_modules = ["engine.tracking"]
+forbidden_modules = ["engine.dag", "engine.runner", "engine.gitgate", "pipelines", "viz", "kfp", "streamlit"]

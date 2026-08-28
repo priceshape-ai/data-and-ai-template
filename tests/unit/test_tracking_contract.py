@@ -13,9 +13,9 @@ import os
 
 import pytest
 
+from engine import tracking as mlflow_logger
+from engine.tracking import log_run
 from project_name.config import CONFIG
-from tracking import mlflow_logger
-from tracking.mlflow_logger import log_run
 
 
 def _config_with_uri(uri: str):
