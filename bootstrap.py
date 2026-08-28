@@ -437,7 +437,14 @@ def main(argv: list[str] | None = None) -> int:
         for path in remove_scaffolding(dry_run=False):
             print(f"Removed {path.relative_to(ROOT)}")
 
-    print("\nDone. Next:\n  uv sync\n  cp .env.example .env\n  uv run pytest")
+    print(
+        "\nDone. Next:"
+        "\n  cp .env.example .env"
+        "\n  $EDITOR .env                 # AWS_PROFILE at least"
+        "\n  set -a; source .env; set +a"
+        "\n  uv sync"
+        "\n  make dvc-pull"
+    )
     return 0
 
 

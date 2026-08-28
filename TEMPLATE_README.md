@@ -37,8 +37,10 @@ description.
 Then:
 
 ```bash
-uv sync
 cp .env.example .env
+$EDITOR .env                 # AWS_PROFILE at least
+set -a; source .env; set +a
+uv sync
 uv run pytest
 ```
 

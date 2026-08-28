@@ -108,10 +108,12 @@ jobs:
             echo ""
             echo '```bash'
             echo "git pull"
-            echo "uv sync"
             echo "cp .env.example .env"
-            echo "uv run pytest"
+            echo "\$EDITOR .env                 # AWS_PROFILE at least"
+            echo "set -a; source .env; set +a"
+            echo "uv sync"
+            echo "make dvc-pull"
             echo '```'
             echo ""
-            echo "Then set the DVC remotes in \`.dvc/config\` and run \`make dvc-pull\`."
+            echo "See \`TEMPLATE_GUIDE.md\` for the recipes."
           } >> "$GITHUB_STEP_SUMMARY"

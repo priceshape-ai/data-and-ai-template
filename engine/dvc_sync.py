@@ -98,6 +98,12 @@ def classify(url: str, root: Path) -> tuple[str, list[str]]:
             return "no-bucket", [detail]
         if "unable to locate credentials" in lowered:
             return "no-credentials", [detail]
+        # boto3 distinguishes an unset AWS_PROFILE from one set to the empty
+        # string: the empty one sends it looking for a profile named "", which
+        # reads as "The config profile () could not be found". Sourcing a .env
+        # with a blank AWS_PROFILE is the usual way to get there.
+        if "config profile" in lowered and "could not be found" in lowered:
+            return "bad-profile", [detail]
         if "forbidden" in lowered or "accessdenied" in lowered or "(403)" in detail:
             return "forbidden", [detail]
 
@@ -244,13 +250,27 @@ def sync_one(directory: str, remote: str, url: str, root: Path) -> str:
     target.mkdir(parents=True, exist_ok=True)
     local_files = sum(1 for f in target.rglob("*") if f.is_file())
 
-    if kind in ("no-bucket", "no-credentials", "forbidden", "error"):
+    if kind in ("no-bucket", "no-credentials", "bad-profile", "forbidden", "error"):
         if kind == "no-bucket":
             bucket = url.split("/")[2] if url.startswith("s3://") else url
             print(f"    the bucket {bucket} does not exist.")
             print("    A per-project prefix needs no creating — S3 makes those on")
             print("    first write — but the bucket does. Ask whoever administers")
             print("    AWS to create it, or fix the name in .dvc/config.")
+        elif kind == "bad-profile":
+            named = (
+                entries[0].split("profile (", 1)[-1].split(")", 1)[0]
+                if "profile (" in entries[0]
+                else ""
+            )
+            if named:
+                print(f"    there is no AWS profile called '{named}'.")
+                print("    Check the name against ~/.aws/config.")
+            else:
+                print("    AWS_PROFILE is set but empty, which boto3 reads as a")
+                print("    profile named '' rather than as 'unset'.")
+                print("    Comment it out in .env, or give it a value:")
+                print("      AWS_PROFILE=data")
         elif kind == "no-credentials":
             print("    no AWS credentials found.")
             print("    Set AWS_PROFILE (PriceShape uses the 'data' profile) or put")

@@ -11,16 +11,23 @@ pieces are and why they are arranged this way, see
 Everything you need to do to a repository just created from the template, in order:
 
 ```bash
-uv sync                        # 1. the whole development environment
-cp .env.example .env           # 2. then fill it in — AWS credentials matter most
-export AWS_PROFILE=data        # 3. or set the keys in .env
-make dvc-pull                  # 4. get the data, or create the dirs for it
-make check                     # 5. lint, types, import boundary, tests
-uv run pipeline                # 6. run the pipeline end to end
+cp .env.example .env           # 1. create your environment file
+$EDITOR .env                   # 2. fill it in — AWS_PROFILE at least
+set -a; source .env; set +a    # 3. load it into this shell
+uv sync                        # 4. the whole development environment
+make dvc-pull                  # 5. get the data, or create the dirs for it
+make check                     # 6. lint, types, import boundary, tests
+uv run pipeline                # 7. run the pipeline end to end
 ```
 
-Step 4 is the only one that varies, and it tells you which case you are in. Step 6
-works even if step 4 found no data — the loader falls back to a built-in sample.
+**Steps 1 to 3 come first on purpose.** Once the shell has your settings, every
+command after it works without further thought — and the commonest first-day
+failure is running `make dvc-pull` in a shell that never got your AWS profile.
+`set -a` exports each variable as it is read; `set +a` stops that again, so only
+`.env` is affected.
+
+Step 5 is the only one that varies, and it tells you which case you are in. Step 7
+works even if step 5 found no data — the loader falls back to a built-in sample.
 
 The rest of this file explains each piece: [Setup](#setup),
 [Data and models](#data-and-models), [Running the pipeline](#running-the-pipeline),
@@ -33,13 +40,24 @@ The rest of this file explains each piece: [Setup](#setup),
 Python 3.12 and [uv](https://docs.astral.sh/uv/) are the only prerequisites.
 
 ```bash
-uv sync                 # the whole development environment
-cp .env.example .env    # then fill it in
+cp .env.example .env         # create it
+$EDITOR .env                 # fill it in
+set -a; source .env; set +a  # load it into this shell
+uv sync                      # the whole development environment
 ```
 
-DVC reads AWS credentials the same way every AWS tool does. Either export a profile
-(`export AWS_PROFILE=data`) or put `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
-in `.env`. Without them `make dvc-pull` says so plainly rather than failing obscurely.
+Settings first, then install. Nothing in `uv sync` needs them, but everything
+after it does, and a shell that has them is one you can keep working in.
+
+DVC reads AWS credentials the same way every AWS tool does: uncomment
+`AWS_PROFILE=data` in `.env`, or set `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY`. That profile assumes `DataDevRole`, which is what grants
+access to both buckets.
+
+Leave `AWS_PROFILE` commented out rather than blank if you are not using it — an
+empty value sends boto3 looking for a profile named `''` and fails with
+`The config profile () could not be found`. `make dvc-pull` recognises that and
+says so, but not setting it is simpler.
 
 `uv sync` installs the `dev` dependency group by default, which pulls in
 everything: linters, tests, MLflow, DVC, Streamlit and the Kubeflow SDK. There is
