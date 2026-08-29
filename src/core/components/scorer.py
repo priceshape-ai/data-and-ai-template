@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import logging
 
-from project_name.config import ScorerConfig
-from project_name.result import NodeResult
+from core.config import ScorerConfig
+from core.result import NodeResult
 
 logger = logging.getLogger(__name__)
 

@@ -10,10 +10,11 @@ starts.
 
 from __future__ import annotations
 
-from engine.dag import DAG
-from project_name.components import Featurizer, Scorer
-from project_name.config import Config
-from project_name.data import DatasetLoader
+from priceshape_ml.dag import DAG
+
+from core.components import Featurizer, Scorer
+from core.config import Config
+from core.data import DatasetLoader
 
 
 def build_pipeline(dag: DAG, config: Config) -> dict[str, str]:

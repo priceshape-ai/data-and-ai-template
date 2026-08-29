@@ -15,7 +15,7 @@ import logging
 import threading
 from typing import Any
 
-from project_name.config import CONFIG
+from core.config import CONFIG
 
 logger = logging.getLogger(__name__)
 

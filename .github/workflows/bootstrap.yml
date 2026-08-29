@@ -20,7 +20,7 @@ jobs:
     # once. You create the repository, push, and only THEN tick "Template
     # repository" in settings — so on that first push is_template is still false,
     # the guard passes, and the workflow bootstraps the template itself: it renames
-    # src/project_name/, substitutes every token, and deletes bootstrap.py. Every
+    # src/core/, substitutes every token, and deletes bootstrap.py. Every
     # repository generated afterwards then inherits the template's own name and has
     # no bootstrapper left to fix it.
     #

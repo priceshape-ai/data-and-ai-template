@@ -5,10 +5,10 @@ description: Add, remove, or rewire a step in this project's pipeline DAG — a 
 
 # Adding a node to the pipeline
 
-The DAG engine is generic, so a new node needs **no change to `engine/dag.py`**.
+The DAG engine is generic, so a new node needs **no change to the engine**.
 Three files, in this order.
 
-## 1. The component — `src/{{PACKAGE_NAME}}/components/<name>.py`
+## 1. The component — `src/core/components/<name>.py`
 
 A node is a callable whose keyword parameters are named after the nodes it depends
 on, returning a `NodeResult`.
@@ -31,7 +31,7 @@ Two rules the cache imposes, both non-negotiable:
 - **Never load a model in `__init__`.** Instance state is part of the key, and it
   makes graph construction slow for no reason.
 
-## 2. The config — `src/{{PACKAGE_NAME}}/config/hyperparameters.py`
+## 2. The config — `src/core/config/hyperparameters.py`
 
 Add a frozen dataclass and hang it off `Config`. Use `Literal` for anything with a
 fixed set of valid values — a misspelled model name should be a type error, not a

@@ -1,10 +1,11 @@
-"""The value every DAG node returns.
+"""The value every pipeline step returns.
 
-A single shared shape is what lets the generic machinery work without knowing
-anything about a particular project: `engine/dag.py` writes a JSONL trace for
-any node returning per-item results, and `engine/tracking.py` records
-whatever lands in `metrics`. A node that returns something else still runs — it
-just gets no trace and no metrics.
+The engine matches this structurally, against the `NodeResultLike` protocol in
+`priceshape_ml` — it never imports this class and never constructs one. That is
+what keeps the engine out of the production image while components, which do ship,
+still return something it understands.
+
+Add fields freely. The engine reads the four below and ignores everything else.
 """
 
 from __future__ import annotations
@@ -15,13 +16,13 @@ from typing import Any
 
 @dataclass
 class NodeResult:
-    """One node's output.
+    """One step's output.
 
     Attributes:
-        items: Per-item results for the train/main split. Written to
-            `runs/<ts>/<node>_items_trace.jsonl` so the Streamlit explorer can
-            show lineage row by row.
-        test_items: Per-item results for the held-out split, if there is one.
+        items: Per-item results for the main split. Written to
+            `runs/<ts>/<node>_items_trace.jsonl`, which is what the run explorer
+            reads to show lineage row by row.
+        test_items: Per-item results for a held-out split, if there is one.
         metrics: Scalar metrics. These are what reach MLflow, as
             `<node_name>.<key>`, so keys should be stable across runs.
         meta: Anything else worth carrying downstream. Not logged, not traced.

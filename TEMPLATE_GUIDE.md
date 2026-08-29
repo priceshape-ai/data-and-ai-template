@@ -105,67 +105,37 @@ a fresh clone works before you have data or S3 credentials.
 
 ## Layout
 
-Two-thirds of the code here is machinery you will never open. It lives in one
-directory so the rest is obviously yours.
+Everything here is yours. The machinery that used to sit alongside it is now the
+`priceshape-ml` package, installed like any other dependency.
 
 ```text
 {{PROJECT_NAME}}/
-│
-│  ── you work here ──────────────────────────────────────────────
-├── src/{{PACKAGE_NAME}}/      # PRODUCTION. The only thing in the wheel and the image.
+├── src/core/                  # PRODUCTION. The only thing in the wheel and the image.
 │   ├── components/            # one module per pipeline step   ← your steps
 │   ├── config/                # frozen dataclasses             ← your settings
 │   ├── data/                  # dataset loading
 │   ├── serving/               # the FastAPI service
-│   └── result.py              # NodeResult, the value every node returns
+│   └── result.py              # NodeResult, what every step returns
 ├── pipelines/
-│   └── build.py               # ← THE GRAPH. The one file here. Start here.
+│   ├── build.py               # ← THE GRAPH. Start here.
+│   └── runner.py              # six lines: this project's config + graph → the engine
 ├── viz/app.py                 # the Streamlit run explorer
 ├── notebooks/                 # exploration
 ├── tests/{unit,integration}/
-│
-│  ── machinery: you will not open these ────────────────────────
-├── engine/
-│   ├── dag.py                 # the engine: local cache + Kubeflow compilation
-│   ├── runner.py              # what `uv run pipeline` calls
-│   ├── gitgate.py             # refuses runs that could not be reproduced
-│   ├── tracking.py            # MLflow run logging
-│   ├── dvc_sync.py            # what `make dvc-pull` calls
-│   └── kubeflow/              # how a run becomes cluster tasks
-│
-│  ── occasionally ───────────────────────────────────────────────
 ├── docker/Dockerfile          # multi-stage, production dependencies only
 ├── deploy/manifests/          # Kubernetes Deployment and Service
 ├── .data/  .models/           # DVC-tracked, git-ignored wholesale
-├── .data.dvc  .models.dvc     # DVC pointers — created by `make dvc-pull`, then committed
-└── docs/
+└── .data.dvc  .models.dvc     # DVC pointers — created by `make dvc-pull`, then committed
 ```
 
-`engine/` is the one directory you can ignore. The single part of it worth knowing
-about is `engine/kubeflow/`, which decides how a run is assembled into cluster
-tasks — see [Running on the cluster](#running-on-the-cluster).
+The package is a development dependency, so it is absent from the production image
+exactly as the old the `priceshape-ml` package directory was. The one part worth knowing about is
+`priceshape_ml.kubeflow`, which decides how a run is assembled into cluster tasks —
+see [Running on the cluster](#run-the-same-graph-on-the-cluster).
 
-Two things about this shape are load-bearing.
-
-**Production is one directory.** `src/{{PACKAGE_NAME}}/` is what a built wheel
-contains and therefore what the container runs. `pipelines/`, `engine/` and
-`viz/` sit outside it, so MLflow, DVC, Streamlit and the Kubeflow SDK cannot reach
-production by accident — they are not in the image at all. When you need to know
-what runs in production, there is one place to look.
-
-**They are still normal packages locally.** `dev-mode-dirs` in `pyproject.toml`
-puts the repository root on `sys.path` for editable installs, so
-`import pipelines.dag` works in a shell, a notebook and a test without any
-`sys.path` manipulation — while `uv sync --no-editable` in the Dockerfile builds a
-wheel that contains `src/` and nothing else.
-
-**`.data/` and `.models/` are dot-prefixed on purpose.** Their contents are DVC's
-business rather than git's, and hiding them keeps the project root about the code.
-The trade-off is that a plain `ls` and Jupyter's file browser filter them out, so
-reach for `ls -a`, and set `c.ContentsManager.allow_hidden = True` in your Jupyter
-config to browse them from a notebook.
-
----
+**The import package is always `core`, in every project.** It is not renamed, so
+imports read identically everywhere and nothing has to be substituted. The
+distribution keeps this project's real name.
 
 ## How to work here
 
@@ -175,10 +145,10 @@ project works.
 
 ### Add a step to the pipeline
 
-Three files, in this order. The engine is generic, so `engine/dag.py` never
+Three files, in this order. The engine is generic, so the engine never
 changes.
 
-**1. The step** — `src/{{PACKAGE_NAME}}/components/ranker.py`
+**1. The step** — `src/core/components/ranker.py`
 
 ```python
 class Ranker:
@@ -194,7 +164,7 @@ class Ranker:
 The parameter name (`featurize`) must match the upstream step's name. A mismatch
 is a `TypeError` on the first run, not a silent wrong answer.
 
-**2. Its settings** — `src/{{PACKAGE_NAME}}/config/hyperparameters.py`
+**2. Its settings** — `src/core/config/hyperparameters.py`
 
 ```python
 @dataclass(frozen=True)
@@ -390,7 +360,7 @@ make docker-verify     # build, then prove no dev tooling got in
 make docker-run        # run it locally
 ```
 
-The image is multi-stage and contains `src/` and nothing else — no `engine/`, no
+The image is multi-stage and contains `src/` and nothing else — no the `priceshape-ml` package, no
 `pipelines/`, no `viz/`, and none of the dev-only packages. `make docker-verify`
 asserts exactly that, and CI runs the same check before any tag is pushed.
 
@@ -446,7 +416,7 @@ Where each kind of change lives:
 | The steps and their order | `pipelines/build.py` — same file as a local run |
 | A step's CPU, memory, GPU, node pool | its `NodeResources`, in `hyperparameters.py` |
 | Endpoint, experiment, bucket, base image | `.env` |
-| How a run is assembled into tasks | `engine/kubeflow/` |
+| How a run is assembled into tasks | `priceshape_ml.kubeflow` |
 
 ### Give a step more memory or a GPU
 
@@ -475,7 +445,7 @@ for its own.
 
 The workaround is to put the extra dependency in the production image. If that is
 ever the wrong answer, the change is small and lives in two places: a new field on
-`NodeResources`, and the branch in `engine/dag.py` that builds each task.
+`NodeResources`, and the branch in the engine that builds each task.
 
 ### Deploy the service
 
@@ -487,7 +457,7 @@ readiness.
 
 ### Add an API endpoint
 
-`src/{{PACKAGE_NAME}}/serving/app.py`, with the inference logic in
+`src/core/serving/app.py`, with the inference logic in
 `inference.py` beside it. This is production code, so the boundary applies: no
 `mlflow`, no `dvc`, no `streamlit`, no `kfp`. Add a test in
 `tests/integration/test_api.py`.
@@ -533,17 +503,17 @@ and keeps the name reserved).
 
 ## Configuration
 
-All of it lives in `src/{{PACKAGE_NAME}}/config/hyperparameters.py`, as frozen
+All of it lives in `src/core/config/hyperparameters.py`, as frozen
 dataclasses. There is no config YAML, deliberately: `Literal`-typed fields turn a
 misspelled model name into an error you see immediately rather than one that
 surfaces three stages into a pipeline, and the values are navigable from the code
 that reads them.
 
 ```python
-from {{PACKAGE_NAME}}.config import CONFIG
+from core.config import CONFIG
 
-CONFIG.featurizer.model_name    # "BAAI/bge-m3"
-CONFIG.scorer.threshold         # 0.5
+CONFIG.featurizer.model_name  # "BAAI/bge-m3"
+CONFIG.scorer.threshold  # 0.5
 ```
 
 Only environment-specific values come from the environment (`.env` locally, real
@@ -699,7 +669,7 @@ sit in the repository root because a `.dvc` file has to live beside what it trac
 — DVC does not support pointing one at a parent directory, and `dvc add --file` was
 removed in DVC 2.0.
 
-There is no `dvc.yaml`. `engine/dag.py` is the pipeline; DVC does artefact
+There is no `dvc.yaml`. the engine is the pipeline; DVC does artefact
 versioning only. Two DAG engines in one repository is a maintenance tax with no
 payoff.
 

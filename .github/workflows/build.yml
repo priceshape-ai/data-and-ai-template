@@ -64,7 +64,7 @@ jobs:
       - name: Verify the image carries no dev-only code
         run: |
           image="${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}"
-          for module in mlflow dvc streamlit kfp engine pipelines viz; do
+          for module in mlflow dvc streamlit kfp pipelines viz; do
             if docker run --rm --entrypoint python "$image" -c "import ${module}" 2>/dev/null; then
               echo "::error::${module} is present in the production image"
               exit 1

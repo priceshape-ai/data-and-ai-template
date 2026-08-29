@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from project_name.serving.app import app
-from project_name.serving.inference import Predictor
+from core.serving.app import app
+from core.serving.inference import Predictor
 
 
 @pytest.fixture

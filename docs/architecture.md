@@ -5,14 +5,14 @@ Why this repository is shaped the way it is. The trees and commands are in
 
 ## The one rule: production is one directory
 
-`src/{{PACKAGE_NAME}}/` is what a built wheel contains, and therefore what the
-container runs. `pipelines/`, `engine/` and `viz/` are separate top-level roots.
+`src/core/` is what a built wheel contains, and therefore what the
+container runs. `pipelines/`, the `priceshape-ml` package and `viz/` are separate top-level roots.
 
 ```
-src/{{PACKAGE_NAME}}/   →  in the wheel, in the image, runs in production
-engine/                 →  development only (the machinery)
-pipelines/              →  development only (the graph)
+src/core/   →  in the wheel, in the image, runs in production
+pipelines/              →  development only (the graph and its wiring)
 viz/                    →  development only (the explorer)
+priceshape-ml           →  a dependency, not a directory
 ```
 
 Everything else follows from that. Ask "what runs in production?" and the answer is
@@ -25,7 +25,7 @@ Four mechanisms, in increasing order of how early they catch a mistake:
 | Mechanism | Catches |
 | --- | --- |
 | `[dependency-groups]` in `pyproject.toml` | `uv sync --no-dev` cannot install mlflow, dvc, streamlit or kfp |
-| `.dockerignore` + `packages = ["src/project_name"]` | those roots are in neither the build context nor the wheel |
+| `.dockerignore` + `packages = ["src/core"]` | those roots are in neither the build context nor the wheel |
 | `import-linter` contracts (`make imports`) | `src/` importing a dev-only package, statically, in milliseconds |
 | CI: `uv sync --no-dev` then import the serving app | anything the static check missed, before merge |
 | CI: import each dev module inside the built image | a leak that survived all of the above |
@@ -41,7 +41,7 @@ it:
 
 ```toml
 [tool.hatch.build.targets.wheel]
-packages = ["src/project_name"]   # what a built wheel contains
+packages = ["src/core"]   # what a built wheel contains
 dev-mode-dirs = [".", "src"]      # what an editable install puts on sys.path
 ```
 
@@ -59,7 +59,7 @@ development. It disappears in the wheel.
 
 ## One DAG engine, not two
 
-`engine/dag.py` is the pipeline. DVC does artefact versioning only, and there is
+the engine is the pipeline. DVC does artefact versioning only, and there is
 no `dvc.yaml`.
 
 DVC pipelines are a reasonable choice on their own, but they are process-per-stage
@@ -76,7 +76,7 @@ The same graph runs locally and on Kubeflow:
 ```
 pipelines/build.py          the graph — the only file that knows the shape
         │
-engine/dag.py
+priceshape_ml/dag.py
         ├── run(backend="local")     in-process, pickle cache in .dag_cache/
         └── run(backend="kubeflow")  one pod per node, results via S3/MinIO
 ```
@@ -90,14 +90,14 @@ hyperparameters live, not in a separate manifest.
 
 **One generic component runs every node.** `dag.py` pickles each node's callable to
 object storage and compiles one task per node, all sharing
-`engine/kubeflow/node_runner.py`. Adding a node never means writing a KFP
+`priceshape_ml/kubeflow/node_runner.py`. Adding a node never means writing a KFP
 component or rebuilding an image.
 
 `node_runner.py` inlines its own S3 helpers rather than importing
-`engine/kubeflow/storage.py`, because KFP lightweight components ship only the
+`priceshape_ml/kubeflow/storage.py`, because KFP lightweight components ship only the
 function's source — and because `pipelines/` is not in any image. What the pod does
 need is the *package*, to unpickle callables that reference
-`{{PACKAGE_NAME}}.components...`. Point `KUBEFLOW_BASE_IMAGE` at this project's own
+`core.components...`. Point `KUBEFLOW_BASE_IMAGE` at this project's own
 production image: it contains `src/` and nothing else, which is exactly right.
 
 ### Cache invalidation
@@ -114,7 +114,7 @@ pins that down. Hold the config, load models lazily inside `__call__`.
 
 ## Configuration is code
 
-All of it is frozen dataclasses in `src/{{PACKAGE_NAME}}/config/hyperparameters.py`,
+All of it is frozen dataclasses in `src/core/config/hyperparameters.py`,
 matching the filename `taxonomy-engine` and `ai-productsmatcher` already use. No
 `config.yaml`, no `params.yaml`.
 
@@ -133,13 +133,13 @@ a commit.
 the entrypoint. `CONFIG` is a module-level singleton, so an entrypoint that imported
 it before loading `.env` would silently get defaults — a bug the reference project it
 was ported from actually has. Owning the load in the config module makes
-`from {{PACKAGE_NAME}}.config import CONFIG` safe from anywhere, and it is a no-op
+`from core.config import CONFIG` safe from anywhere, and it is a no-op
 when there is no `.env`, which is the production case.
 
 ## Reproducibility gate
 
 Every MLflow run is tagged with a commit SHA, and a SHA is only worth recording if
-the tree matched it. So `engine/gitgate.py` refuses to start when the tree is
+the tree matched it. So `priceshape_ml.gitgate` refuses to start when the tree is
 dirty or has unpushed commits.
 
 It steps aside in three cases, and the first is the important one:
@@ -154,9 +154,9 @@ It steps aside in three cases, and the first is the important one:
 Nothing is exempt from the dirty check, including the config directory. Config *is*
 the experiment; exempting it is what makes a recorded SHA a lie.
 
-Git introspection lives in `gitgate.py`, not in `engine/`, so the MLflow logger
+Git introspection lives in `gitgate.py`, not in the `priceshape-ml` package, so the MLflow logger
 stays a pure function of its arguments and never shells out. That is also why
-`engine/` is forbidden from importing `pipelines/` — the tags are passed in.
+the `priceshape-ml` package is forbidden from importing `pipelines/` — the tags are passed in.
 
 ## Failure modes that shaped the code
 
@@ -172,7 +172,7 @@ killed.
 
 **MLflow's retries are bounded.** The client defaults to 7 retries with exponential
 backoff, so an unreachable server stalls an already-finished pipeline for minutes.
-`engine/tracking.py` lowers that to seconds via `os.environ.setdefault`.
+`priceshape_ml.tracking` lowers that to seconds via `os.environ.setdefault`.
 
 **`log_run` never raises.** A tracking outage must not destroy a run whose results
 are already on disk. Failures downgrade to a warning; the traceback goes to DEBUG,

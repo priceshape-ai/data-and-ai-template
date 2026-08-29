@@ -8,7 +8,7 @@ paths:
 # The production boundary
 
 You are editing code that ships. `src/` is what the wheel contains and what the
-container runs; `engine/`, `pipelines/` and `viz/` are development-only roots that
+container runs; the `priceshape-ml` package, `pipelines/` and `viz/` are development-only roots that
 are in neither.
 
 ## Forbidden imports under `src/`

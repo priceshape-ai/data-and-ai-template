@@ -17,9 +17,9 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
-from project_name import __version__
-from project_name.config import CONFIG
-from project_name.serving.inference import PREDICTOR
+from core import __version__
+from core.config import CONFIG
+from core.serving.inference import PREDICTOR
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ def run() -> None:
     import uvicorn
 
     uvicorn.run(
-        "project_name.serving.app:app",
+        "core.serving.app:app",
         host=CONFIG.serving.host,
         port=CONFIG.serving.port,
         log_level=CONFIG.log_level.lower(),

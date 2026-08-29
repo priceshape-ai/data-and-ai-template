@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import logging
 
-from project_name.config import FeaturizerConfig
-from project_name.result import NodeResult
+from core.config import FeaturizerConfig
+from core.result import NodeResult
 
 logger = logging.getLogger(__name__)
 

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-PACKAGE := project_name
+PACKAGE := core
 IMAGE    := project-name
 RUN      ?=
 
@@ -24,7 +24,7 @@ format:  ## Format
 	uv run ruff format .
 
 typecheck:  ## Type-check every root
-	uv run mypy src engine pipelines viz
+	uv run mypy src pipelines viz
 
 imports:  ## Enforce the prod/dev import boundary
 	uv run lint-imports
@@ -52,7 +52,7 @@ viz:  ## Explore pipeline runs. Pick one with: make viz RUN=2026-08-20T09-14-02
 # committed, download and start tracking if plain files are staged in S3, or create
 # the directories if the prefix is empty.
 dvc-pull:  ## Get data and models: sync from S3, or create the dirs if there is none
-	uv run python engine/dvc_sync.py
+	uv run python -m priceshape_ml.dvc_sync
 
 dvc-push:  ## Publish data and models to S3
 	uv run dvc push
@@ -60,7 +60,7 @@ dvc-push:  ## Publish data and models to S3
 # Not a bare `dvc add`: that re-hashes but drops the remote: pin, and an unpinned
 # output is how a dataset reaches the models bucket.
 dvc-add:  ## Re-hash .data.dvc / .models.dvc after changing either tree
-	uv run python engine/dvc_sync.py --add
+	uv run python -m priceshape_ml.dvc_sync --add
 
 # ── container ─────────────────────────────────────────────────────────────────
 
@@ -77,7 +77,7 @@ docker-verify: docker-build  ## Assert the image carries no dev-only tooling
 			echo "FAIL: $$module is installed in the production image"; exit 1; \
 		fi; \
 	done
-	@for module in engine pipelines viz; do \
+	@for module in pipelines viz; do \
 		if docker run --rm --entrypoint python $(IMAGE):dev -c "import $$module" 2>/dev/null; then \
 			echo "FAIL: the $$module root leaked into the production image"; exit 1; \
 		fi; \

@@ -1,8 +1,8 @@
-"""The graph. One file: `build.py`, where this project's pipeline is defined.
+"""The graph, and the six lines that hand it to the engine.
 
-Deliberately the only thing in this package. The engine that runs the graph lives
-in `engine/`, so opening this directory to change the pipeline does not put you
-beside a scheduler you did not come for.
+`build.py` is where this project's pipeline is defined. `runner.py` supplies this
+project's config and graph to `priceshape_ml.run`, which is the same in every
+project and therefore lives in a package rather than here.
 
 Development only — never present in the production image.
 """

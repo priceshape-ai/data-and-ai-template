@@ -49,10 +49,10 @@ def decide(file_path: str, content: str, tool: str = "Write") -> str:
         ("requirements.txt", "numpy\n"),
         (".data/raw/.gitkeep", ""),
         (".models/.gitkeep", ""),
-        ("src/project_name/components/scorer.py", "import mlflow\n"),
-        ("src/project_name/serving/app.py", "from engine.dag import DAG\n"),
-        ("src/project_name/serving/app.py", "from pipelines.build import build_pipeline\n"),
-        ("src/project_name/data/loader.py", "import dvc.api\n"),
+        ("src/core/components/scorer.py", "import mlflow\n"),
+        ("src/core/serving/app.py", "from priceshape_ml import DAG\n"),
+        ("src/core/serving/app.py", "from pipelines.build import build_pipeline\n"),
+        ("src/core/data/loader.py", "import dvc.api\n"),
         ("pyproject.toml", 'dependencies = [\n  "streamlit",\n]\n[dependency-groups]\n'),
     ],
 )
@@ -64,20 +64,17 @@ def test_structural_violations_are_denied(path: str, content: str) -> None:
     ("path", "content"),
     [
         # Dev-only tooling in the roots that exist to hold it.
-        ("engine/tracking.py", "import mlflow\n"),
         ("viz/app.py", "import streamlit as st\n"),
-        ("engine/kubeflow/node_runner.py", "import kfp\n"),
-        ("engine/dag.py", "from engine.tracking import log_run\n"),
         ("tests/unit/test_tracking_contract.py", "import mlflow\n"),
-        ("engine/dvc_sync.py", "import subprocess\n"),
-        ("pipelines/build.py", "from engine.dag import DAG\n"),
+        ("pipelines/build.py", "from priceshape_ml import DAG\n"),
+        ("pipelines/runner.py", "from priceshape_ml import run\n"),
         # Ordinary production code.
-        ("src/project_name/components/ranker.py", "import numpy as np\n"),
+        ("src/core/components/ranker.py", "import numpy as np\n"),
         # Prose that merely mentions a forbidden package.
-        ("src/project_name/config/hyperparameters.py", '"""tracking/ imports mlflow."""\n'),
-        ("src/project_name/config/hyperparameters.py", "class MlflowConfig:\n    uri: str\n"),
+        ("src/core/config/hyperparameters.py", '"""tracking/ imports mlflow."""\n'),
+        ("src/core/config/hyperparameters.py", "class MlflowConfig:\n    uri: str\n"),
         # The correct way to declare a credential: empty, filled from the env.
-        ("src/project_name/config/hyperparameters.py", '    api_key: str = ""\n'),
+        ("src/core/config/hyperparameters.py", '    api_key: str = ""\n'),
         # Root files that belong at the root.
         ("bootstrap.py", "x = 1\n"),
         ("docs/notes.md", "import mlflow everywhere\n"),
@@ -96,7 +93,7 @@ def test_legitimate_edits_are_allowed(path: str, content: str) -> None:
     ("path", "content"),
     [
         (".data.dvc", "outs:\n- md5: abc\n"),
-        ("src/project_name/config/hyperparameters.py", '    api_key: str = "sk-live-abc"\n'),
+        ("src/core/config/hyperparameters.py", '    api_key: str = "sk-live-abc"\n'),
     ],
 )
 def test_judgement_calls_ask_rather_than_block(path: str, content: str) -> None:
@@ -106,7 +103,7 @@ def test_judgement_calls_ask_rather_than_block(path: str, content: str) -> None:
 
 def test_edit_payloads_are_understood() -> None:
     """Edit carries new_string rather than content; both shapes must be read."""
-    assert decide("src/project_name/components/x.py", "import mlflow\n", tool="Edit") == "deny"
+    assert decide("src/core/components/x.py", "import mlflow\n", tool="Edit") == "deny"
 
 
 def test_malformed_payload_fails_open() -> None:

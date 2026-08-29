@@ -50,7 +50,7 @@ uv run pytest
 
 1. Substitutes every token and sentinel, deriving the values from the repository
    name, owner and description.
-2. Renames `src/project_name/` to `src/<your_package>/`.
+2. Renames `src/core/` to `src/<your_package>/`.
 3. Validates the result — every rewritten `.py` still parses, no token or sentinel
    survives, the package directory exists. If anything fails it leaves
    `bootstrap.py` in place and exits non-zero, so CI does not commit a broken tree.
@@ -66,7 +66,7 @@ github.repository != 'priceshape-ai/data-and-ai-template'
 `is_template` alone is not enough, and relying on it destroyed this template once.
 You create the repository, push, and only *then* tick **Template repository** in
 settings — so on that first push `is_template` is still `false`, the guard passes,
-and the workflow bootstraps the template: it renames `src/project_name/`,
+and the workflow bootstraps the template: it renames `src/core/`,
 substitutes every token, and deletes `bootstrap.py`. Every repository generated
 afterwards inherits the template's own name, with no bootstrapper left to fix it.
 The name check needs no setting anyone has to remember, so it holds from the first
@@ -117,7 +117,7 @@ grep. `bootstrap.py` rewrites them across every text file.
 | Token | Derived from | Example |
 | --- | --- | --- |
 | `{{PROJECT_NAME}}` | the repository name, as-is | `churn-predictor` |
-| `{{PACKAGE_NAME}}` | the repository name, made importable | `churn_predictor` |
+| `core` | the repository name, made importable | `churn_predictor` |
 | `{{PROJECT_TITLE}}` | the repository name, title-cased | `Churn Predictor` |
 | `{{PROJECT_DESCRIPTION}}` | the GitHub repository description | `Predicts subscriber churn.` |
 | `{{GITHUB_OWNER}}` | the repository owner | `priceshape-ai` |
@@ -126,13 +126,13 @@ grep. `bootstrap.py` rewrites them across every text file.
 | `{{AUTHOR_EMAIL}}` | `git config user.email` | `thv@priceshape.dk` |
 | `{{YEAR}}` | the current year | `2026` |
 
-### Sentinels — the literal `project_name` and `project-name`
+### Sentinels — the literal `core` and `project-name`
 
 For anywhere the value must be **syntactically valid before bootstrapping**:
 
 - `project-name` — the distribution name in `pyproject.toml`, the Docker image tag,
   the S3 paths in `.dvc/config`, the Kubernetes resource names, `MLFLOW_EXPERIMENT`.
-- `project_name` — the package directory, every `import` statement, the Makefile's
+- `core` — the package directory, every `import` statement, the Makefile's
   `PACKAGE` variable, `[tool.hatch.build.targets.wheel] packages`.
 
 Why not tokens everywhere? Because `name = "{{PROJECT_NAME}}"` is not a valid
@@ -140,8 +140,8 @@ package name and `uv sync` refuses it. Sentinels keep **the template itself
 installable, testable and CI-green**, which is what makes it maintainable — you can
 run `make check` on the template and get a real answer.
 
-So: when you add a file *inside* the package, put it under `src/project_name/`.
-When you *write about* the package, use `{{PACKAGE_NAME}}`.
+So: when you add a file *inside* the package, put it under `src/core/`.
+When you *write about* the package, use `core`.
 
 ---
 

@@ -29,12 +29,12 @@ works.
 
 | What you are adding | Where |
 | --- | --- |
-| A pipeline step | `src/{{PACKAGE_NAME}}/components/` |
-| Its settings | `src/{{PACKAGE_NAME}}/config/hyperparameters.py` |
+| A pipeline step | `src/core/components/` |
+| Its settings | `src/core/config/hyperparameters.py` |
 | Wiring it into the graph | `pipelines/build.py` |
-| An LLM prompt | `src/{{PACKAGE_NAME}}/config/prompts/` |
-| Dataset loading | `src/{{PACKAGE_NAME}}/data/` |
-| An API endpoint | `src/{{PACKAGE_NAME}}/serving/` |
+| An LLM prompt | `src/core/config/prompts/` |
+| Dataset loading | `src/core/data/` |
+| An API endpoint | `src/core/serving/` |
 | A view in the run explorer | `viz/app.py` |
 | A unit test | `tests/unit/` |
 | An end-to-end test | `tests/integration/` |
@@ -42,25 +42,27 @@ works.
 | Exploration | `notebooks/` |
 | A decision worth keeping | `docs/architecture.md` |
 
-Nothing goes at the repository root, and nothing new goes in `engine/`. If a file
-seems to belong somewhere not on this list, say why before creating it.
+Nothing goes at the repository root. If a file seems to belong somewhere not on
+this list, say why before creating it — and if it looks like machinery rather than
+this project, it probably belongs in `priceshape-ml`.
 
 ## The one architectural rule
 
-**Production is one directory: `src/{{PACKAGE_NAME}}/`.** That is what the wheel
+**Production is one directory: `src/core/`.** That is what the wheel
 contains and what the container runs. Three other roots exist and none of them ship:
 
 | Root | Ships? | Holds | You edit it? |
 | --- | :---: | --- | --- |
-| `src/{{PACKAGE_NAME}}/` | yes | components, data loading, config, the FastAPI service | constantly |
-| `pipelines/` | no | `build.py` — the graph, and nothing else | constantly |
+| `src/core/` | yes | components, data loading, config, the FastAPI service | constantly |
+| `pipelines/` | no | `build.py` — the graph; `runner.py` — six lines of wiring | constantly |
 | `viz/` | no | the Streamlit run explorer | often |
-| `engine/` | no | DAG engine, runner, git gate, MLflow logging, DVC sync, Kubeflow backend | almost never |
 
-`engine/` is machinery. The one part of it worth opening is `engine/kubeflow/`,
-which decides how a run becomes cluster tasks.
+**The machinery is not in this repository.** The DAG, the runner, the git gate,
+MLflow logging, the DVC sync and the Kubeflow backend are the `priceshape-ml`
+package, installed as a dependency. A fix there reaches every project at the next
+version bump instead of being copied into each one by hand.
 
-So `src/` must never import `mlflow`, `dvc`, `streamlit`, `kfp`, `engine`,
+So `src/` must never import `mlflow`, `dvc`, `streamlit`, `kfp`, `priceshape_ml`,
 `pipelines` or `viz`. `make imports` fails with the exact import chain if it does,
 and a `PreToolUse` hook refuses the edit before that. Dev code importing `src/` is
 the correct direction and is always fine.
@@ -72,7 +74,7 @@ The root is for configuration files only.
 ## Configuration is code
 
 All of it is frozen dataclasses in
-`src/{{PACKAGE_NAME}}/config/hyperparameters.py`. There is no `config.yaml` and no
+`src/core/config/hyperparameters.py`. There is no `config.yaml` and no
 `params.yaml`, deliberately — `tests/test_smoke.py` fails if one appears.
 
 A hyperparameter is part of what a commit means, so it belongs in the dataclass.
@@ -89,8 +91,13 @@ and its upstream nodes' keys. Two consequences that bite:
 - **Load models lazily inside `__call__`, never in `__init__`.** Instance state is
   part of the cache key, so a loaded model in `__init__` is both slow and wrong.
 
-Define the graph in `pipelines/build.py`. Adding a node needs no change to
-`engine/dag.py` — use the `add-pipeline-node` skill.
+Define the graph in `pipelines/build.py`. Adding a node changes nothing in the
+engine — use the `add-pipeline-node` skill.
+
+A step returns this project's own `NodeResult` (`src/core/result.py`). The engine
+matches it structurally and never imports it, which is what lets the engine stay
+out of the production image while components, which ship, still return something
+it understands.
 
 ## Data and models
 

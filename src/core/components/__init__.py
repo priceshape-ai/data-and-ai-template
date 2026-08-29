@@ -6,7 +6,7 @@ together; they know nothing about the DAG, MLflow or Kubeflow, which is what mak
 them plain unit-testable objects.
 """
 
-from project_name.components.featurizer import Featurizer
-from project_name.components.scorer import Scorer
+from core.components.featurizer import Featurizer
+from core.components.scorer import Scorer
 
 __all__ = ["Featurizer", "Scorer"]

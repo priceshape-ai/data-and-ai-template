@@ -12,8 +12,8 @@ import json
 import logging
 from typing import Any
 
-from project_name.config import CONFIG, LoaderConfig
-from project_name.result import NodeResult
+from core.config import CONFIG, LoaderConfig
+from core.result import NodeResult
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ _SAMPLE: list[dict[str, Any]] = [
 class DatasetLoader:
     """Reads a JSONL dataset from `.data/`, falling back to a built-in sample.
 
-    Node configs are held on `self.cfg` and nowhere else. `engine/dag.py`
+    Node configs are held on `self.cfg` and nowhere else. `priceshape_ml`
     fingerprints `vars(self)` to decide whether a cached result is still valid,
     so anything stored on the instance must be cheap and JSON-representable —
     load models lazily inside `__call__`, never in `__init__`.

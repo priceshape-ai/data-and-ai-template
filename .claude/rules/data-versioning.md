@@ -2,7 +2,6 @@
 paths:
   - "*.dvc"
   - ".dvc/**"
-  - "engine/dvc_sync.py"
   - ".gitignore"
 ---
 
@@ -40,6 +39,6 @@ Both directories are git-ignored wholesale and
 `.dvc/config` sets no default remote on purpose, so a bare `dvc push` cannot send
 datasets to the models bucket. The pin lives in the `.dvc` file as `remote:`.
 `dvc add` preserves it but never writes it, which is why `make dvc-add` goes
-through `engine/dvc_sync.py --add` rather than calling `dvc add` directly.
+through `priceshape_ml.dvc_sync --add` rather than calling `dvc add` directly.
 
 Do not hand-edit a `.dvc` file. Use the make targets.

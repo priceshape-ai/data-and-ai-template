@@ -18,15 +18,15 @@ to the template:
 **Tokens** — `{{PROJECT_NAME}}` and friends. Use these in prose: READMEs, docstrings,
 comments, YAML descriptions. They are unambiguous and easy to grep for.
 
-**Sentinels** — the literal strings `project_name` and `project-name`. Use these
+**Sentinels** — the literal strings `core` and `project-name`. Use these
 wherever the value has to be syntactically valid *before* bootstrapping:
 `pyproject.toml`'s distribution name, the package directory, import statements,
 Makefile variables, S3 paths. This is what keeps the template itself installable
 and its own CI green — a `name = "{{PROJECT_NAME}}"` in pyproject.toml would be an
 invalid package name and `uv sync` would refuse it.
 
-So: inside the package, add files under `src/project_name/`; when writing *about*
-the package, use `{{PACKAGE_NAME}}`.
+So: inside the package, add files under `src/core/`; when writing *about*
+the package, use `core`.
 """
 
 from __future__ import annotations
@@ -36,6 +36,7 @@ import ast
 import datetime
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -102,8 +103,148 @@ SKIP_SUFFIXES = frozenset(
 # too, but this catches a local `python bootstrap.py` run in a template checkout.
 TEMPLATE_PROJECT_NAMES = frozenset({"data-and-ai-template", "ml-project-template"})
 
-PACKAGE_SENTINEL = "project_name"
 PROJECT_SENTINEL = "project-name"
+
+
+# ── shapes ───────────────────────────────────────────────────────────────────
+# Not every project needs all six tools. A shape removes the edges it will not
+# use; the DAG, config, data versioning and run logging are in every one of them,
+# because those are what make a project reproducible rather than optional extras.
+#
+# validate() re-walks every surviving import after pruning, so a shape that cuts
+# something still referenced fails loudly here rather than at someone's first run.
+
+PARTS: dict[str, dict[str, list[str]]] = {
+    "serving": {
+        "paths": ["src/core/serving", "deploy", "tests/integration/test_api.py"],
+        "deps": ["fastapi", "uvicorn"],
+        "targets": ["serve", "docker-run"],
+    },
+    "viz": {
+        "paths": ["viz", "tests/unit/test_viz.py"],
+        "groups": ["viz"],
+        "targets": ["viz"],
+        # import-linter resolves every root package it is given, so a pruned root
+        # left in the config fails the whole check with "Could not find package".
+        "roots": ["viz"],
+        "modules": ["viz", "streamlit"],
+    },
+    "kubeflow": {
+        # The backend lives in priceshape-ml now, so pruning it means dropping the
+        # extra rather than deleting files.
+        "extras": ["kubeflow"],
+        "groups": ["orchestration"],
+        "modules": ["kfp"],
+    },
+}
+
+FLAVORS: dict[str, tuple[tuple[str, ...], str]] = {
+    "full": ((), "everything: a graph, a served model, the cluster backend, the explorer"),
+    "pipeline": (("serving",), "a batch pipeline — no HTTP service to deploy"),
+    "service": (("viz", "kubeflow"), "a served model or language-model product — no cluster runs"),
+    "explore": (("serving", "kubeflow"), "analysis and notebooks — nothing deployed"),
+}
+
+
+def prune(flavor: str, dry_run: bool) -> list[str]:
+    """Remove the parts this shape does not use. Returns what went."""
+    removed: list[str] = []
+    for part in FLAVORS[flavor][0]:
+        spec = PARTS[part]
+        for rel in spec.get("paths", []):
+            path = ROOT / rel
+            if not path.exists():
+                continue
+            removed.append(rel)
+            if dry_run:
+                continue
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+        if not dry_run:
+            _drop_dependencies(spec.get("deps", []), spec.get("groups", []))
+            _drop_targets(spec.get("targets", []))
+            _drop_from_checks(spec.get("roots", []), spec.get("modules", []))
+    return removed
+
+
+def _drop_dependencies(deps: list[str], groups: list[str]) -> None:
+    """Take the packages and dependency groups a pruned part needed out of pyproject."""
+    path = ROOT / "pyproject.toml"
+    lines = path.read_text().splitlines()
+    out, skipping = [], False
+    for line in lines:
+        stripped = line.strip()
+        if skipping:
+            if stripped.startswith("]"):
+                skipping = False
+            continue
+        if any(stripped.startswith(f"{g} = [") for g in groups):
+            skipping = not stripped.endswith("]")
+            if not skipping:
+                continue
+            continue
+        if any(stripped.startswith(f'"{d}') for d in deps):
+            continue
+        # A pruned group must also stop being included by the umbrella dev group.
+        if any(f'include-group = "{g}"' in stripped for g in groups):
+            continue
+        out.append(line)
+    path.write_text("\n".join(out) + "\n")
+
+
+def _drop_from_checks(roots: list[str], modules: list[str]) -> None:
+    """Take a pruned root out of the import-linter and ruff configuration.
+
+    import-linter resolves every name in `root_packages`, so one that no longer
+    exists fails the whole check with "Could not find package" rather than being
+    skipped. The forbidden-module lists are cosmetic once the package is gone, but
+    leaving them invites someone to re-add the dependency and wonder why nothing
+    complains.
+    """
+    names = set(roots) | set(modules)
+    if not names:
+        return
+
+    path = ROOT / "pyproject.toml"
+    kept: list[str] = []
+    for line in path.read_text().splitlines():
+        stripped = line.strip().rstrip(",")
+        # A list member on its own line: drop the line entirely.
+        if stripped[1:-1] in names and stripped[:1] in {'"', "'"}:
+            continue
+        # A member of an inline list: remove just that element.
+        for name in names:
+            line = re.sub(rf'"{re.escape(name)}",\s*', "", line)
+            line = re.sub(rf',\s*"{re.escape(name)}"', "", line)
+        kept.append(line)
+    path.write_text("\n".join(kept) + "\n")
+
+
+def _drop_targets(targets: list[str]) -> None:
+    """Remove make targets whose command no longer exists."""
+    if not targets:
+        return
+    path = ROOT / "Makefile"
+    lines = path.read_text().splitlines()
+    out, skipping = [], False
+    for line in lines:
+        if skipping:
+            if line.strip() == "":
+                skipping = False
+                continue
+            if line.startswith("\t") or line.startswith("#"):
+                continue
+            skipping = False
+        if any(line.startswith(f"{t}:") for t in targets):
+            skipping = True
+            continue
+        out.append(line)
+    text = "\n".join(out) + "\n"
+    for target in targets:
+        text = text.replace(f" {target} ", " ").replace(f" {target}\n", "\n")
+    path.write_text(text)
 
 
 # ── deriving the values ───────────────────────────────────────────────────────
@@ -123,14 +264,6 @@ def detect_repo() -> tuple[str, str]:
     return "priceshape-ai", ROOT.name
 
 
-def to_package_name(project: str) -> str:
-    """`churn-predictor` -> `churn_predictor`, and always a valid identifier."""
-    package = re.sub(r"[^0-9a-zA-Z_]+", "_", project).strip("_").lower()
-    if not package or not package[0].isalpha():
-        package = f"p_{package}" if package else "project"
-    return package
-
-
 def to_title(project: str) -> str:
     """`churn-predictor` -> `Churn Predictor`."""
     return " ".join(word.capitalize() for word in re.split(r"[-_\s]+", project) if word)
@@ -144,19 +277,17 @@ def build_context(args: argparse.Namespace) -> dict[str, str]:
     if project in TEMPLATE_PROJECT_NAMES:
         sys.exit(
             f"Refusing to bootstrap '{project}': that is the template itself.\n"
-            "Bootstrapping it would rename the package, substitute every token and\n"
-            "delete this script, so no correctly-named project could be generated\n"
-            "again. Generate a repository from the template first, then run this\n"
-            "there — or pass --project <other-name> to bootstrap this checkout\n"
-            "under a different name.\n"
+            "Bootstrapping it would substitute every token, prune to one shape and\n"
+            "delete this script, leaving nothing that can generate a project again.\n"
+            "Generate a repository from the template first, then run this there — or\n"
+            "pass --project <other-name> to bootstrap this checkout under a\n"
+            "different name.\n"
             "See TEMPLATE_README.md, 'Working on the template itself'."
         )
-    package = args.package or to_package_name(project)
     title = to_title(project)
 
     return {
         "PROJECT_NAME": project,
-        "PACKAGE_NAME": package,
         "PROJECT_TITLE": title,
         "PROJECT_DESCRIPTION": args.description or f"{title} — a PriceShape Data & AI project.",
         "GITHUB_OWNER": owner,
@@ -209,9 +340,8 @@ def should_skip_workflow(path: Path) -> bool:
 def substitute(text: str, context: dict[str, str]) -> str:
     for key, value in context.items():
         text = text.replace(f"{{{{{key}}}}}", value)
-    # Sentinels last, so a token expanding to something containing "project-name"
-    # is not then re-substituted.
-    text = text.replace(PACKAGE_SENTINEL, context["PACKAGE_NAME"])
+    # The sentinel last, so a token expanding to something containing
+    # "project-name" is not then re-substituted.
     return text.replace(PROJECT_SENTINEL, context["PROJECT_NAME"])
 
 
@@ -237,19 +367,6 @@ def rewrite_files(context: dict[str, str], dry_run: bool) -> list[Path]:
     return changed
 
 
-def rename_package(context: dict[str, str], dry_run: bool) -> Path | None:
-    """Rename `src/project_name/` to the real package name."""
-    source = ROOT / "src" / PACKAGE_SENTINEL
-    target = ROOT / "src" / context["PACKAGE_NAME"]
-    if not source.is_dir() or source == target:
-        return None
-    if target.exists():
-        raise SystemExit(f"cannot rename: {target} already exists")
-    if not dry_run:
-        source.rename(target)
-    return target
-
-
 def _ruff_command() -> list[str] | None:
     """Find a runnable ruff, or None.
 
@@ -273,7 +390,7 @@ def format_code(dry_run: bool) -> bool:
     """Re-sort imports and reformat after substitution.
 
     Renaming the package changes where its imports sort: `churn_predictor` comes
-    before `pipelines`, where `project_name` came after. Every module importing both
+    before `pipelines`, where `core` came after. Every module importing both
     is left with an unsorted import block, so a generated project would start life
     with a red `ruff check` — the worst possible first impression of the template.
     Fixing it here is what makes `make check` pass on a fresh generated repository.
@@ -352,7 +469,7 @@ def validate(context: dict[str, str]) -> list[str]:
     """
     problems: list[str] = []
 
-    package_dir = ROOT / "src" / context["PACKAGE_NAME"]
+    package_dir = ROOT / "src" / "core"
     if not (package_dir / "__init__.py").is_file():
         problems.append(f"package not found: {package_dir}/__init__.py")
 
@@ -367,7 +484,7 @@ def validate(context: dict[str, str]) -> list[str]:
         relative = path.relative_to(ROOT)
         for leftover in re.findall(r"\{\{[A-Z_]+\}\}", text):
             problems.append(f"{relative}: unsubstituted token {leftover}")
-        if PACKAGE_SENTINEL in text or PROJECT_SENTINEL in text:
+        if PROJECT_SENTINEL in text:
             problems.append(f"{relative}: leftover sentinel")
 
         if path.suffix == ".py":
@@ -384,8 +501,13 @@ def validate(context: dict[str, str]) -> list[str]:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--flavor",
+        choices=sorted(FLAVORS),
+        default=os.environ.get("TEMPLATE_FLAVOR", "full"),
+        help="Which shape to keep: " + "; ".join(f"{k} ({v[1]})" for k, v in FLAVORS.items()),
+    )
     parser.add_argument("--project", help="Project name (default: the repository name)")
-    parser.add_argument("--package", help="Python package name (default: derived)")
     parser.add_argument("--owner", help="GitHub owner (default: from the origin remote)")
     parser.add_argument("--description", help="One-line project description")
     parser.add_argument("--author", help="Author name (default: git config user.name)")
@@ -409,13 +531,15 @@ def main(argv: list[str] | None = None) -> int:
     print()
 
     changed = rewrite_files(context, args.dry_run)
-    renamed = rename_package(context, args.dry_run)
-
     verb = "Would rewrite" if args.dry_run else "Rewrote"
     print(f"{verb} {len(changed)} file(s).")
-    if renamed:
-        verb = "Would rename" if args.dry_run else "Renamed"
-        print(f"{verb} src/{PACKAGE_SENTINEL}/ → src/{renamed.name}/")
+
+    dropped = prune(args.flavor, args.dry_run)
+    verb = "Would keep" if args.dry_run else "Keeping"
+    print(f"{verb} the '{args.flavor}' shape — {FLAVORS[args.flavor][1]}.")
+    if dropped:
+        verb = "Would remove" if args.dry_run else "Removed"
+        print(f"  {verb}: {', '.join(dropped)}")
 
     if args.dry_run:
         print("\nDry run — nothing changed.")

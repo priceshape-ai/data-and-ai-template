@@ -10,7 +10,7 @@ One module per prompt, named for its role:
     SCORER_SYSTEM = \"\"\"You are ...\"\"\"
 
 then re-export it here so callers write
-`from project_name.config.prompts import SCORER_SYSTEM`.
+`from core.config.prompts import SCORER_SYSTEM`.
 """
 
 __all__: list[str] = []

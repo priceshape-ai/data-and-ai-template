@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from project_name.config import PROJECT_ROOT
+from core.config import PROJECT_ROOT
 
 
 @pytest.fixture

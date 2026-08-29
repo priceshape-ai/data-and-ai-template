@@ -14,13 +14,13 @@ import pytest
 
 
 def test_package_imports() -> None:
-    import project_name
+    import core
 
-    assert project_name.__version__
+    assert core.__version__
 
 
 def test_config_singleton() -> None:
-    from project_name.config import CONFIG
+    from core.config import CONFIG
 
     assert CONFIG.environment
     assert CONFIG.paths.data_root.name == ".data"
@@ -29,12 +29,9 @@ def test_config_singleton() -> None:
 @pytest.mark.parametrize(
     "module",
     [
-        "engine.dag",
         "pipelines.build",
-        "engine.runner",
-        "engine.gitgate",
-        "engine.tracking",
-        "engine.kubeflow.node_runner",
+        "pipelines.runner",
+        "priceshape_ml",
     ],
 )
 def test_dev_roots_are_importable(module: str) -> None:
@@ -44,9 +41,10 @@ def test_dev_roots_are_importable(module: str) -> None:
 
 @pytest.mark.parametrize(
     "directory",
-    ["src", "engine", "pipelines", "viz", "tests", "docker", "deploy", "docs"],
+    ["src", "pipelines", "tests", "docker", "docs"],
 )
 def test_expected_directories_exist(project_root, directory: str) -> None:
+    """The parts every shape keeps. `viz/` and `deploy/` are shape-dependent."""
     assert (project_root / directory).is_dir(), f"missing directory: {directory}"
 
 
@@ -63,7 +61,7 @@ def test_expected_directories_exist(project_root, directory: str) -> None:
         ".env.example",
         ".dvcignore",
         ".dockerignore",
-        "engine/dvc_sync.py",
+        "pipelines/runner.py",
         "docker/Dockerfile",
     ],
 )

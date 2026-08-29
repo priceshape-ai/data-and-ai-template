@@ -23,7 +23,7 @@ So the first-run loop is: `make dvc-pull` creates the directories, you add data,
 ```bash
 make dvc-pull                             # be current first
 cp ~/new-data.jsonl .data/raw/
-# point the loader at it in src/{{PACKAGE_NAME}}/config/hyperparameters.py:
+# point the loader at it in src/core/config/hyperparameters.py:
 #   source: str = "raw/new-data.jsonl"
 make dvc-add                              # re-hash
 make dvc-push                             # upload — BEFORE committing

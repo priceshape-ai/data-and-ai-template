@@ -1,7 +1,6 @@
 ---
 paths:
   - "pipelines/**/*.py"
-  - "engine/**/*.py"
   - "src/**/components/**/*.py"
   - "src/**/data/**/*.py"
 ---

@@ -32,6 +32,13 @@ dependencies = [
 # include-group, and uv installs `dev` by default — so a plain `uv sync` gives a
 # developer the whole environment, and `uv sync --no-dev` gives production.
 [dependency-groups]
+# The shared engine: the DAG, the git gate, run logging and the data sync. It is
+# development-only, exactly like the directory it replaced — production serves a
+# model and never runs a pipeline. Pinned to a tag so nothing moves underneath a
+# project until someone bumps it deliberately.
+engine = [
+    "priceshape-ml[tracking,kubeflow,data] @ git+ssh://git@github.com/priceshape-ai/priceshape-ml@v0.1.0",
+]
 lint = [
     "ruff>=0.6",
     "mypy>=1.11",
@@ -66,12 +73,12 @@ viz = [
 ]
 orchestration = [
     "kfp>=2.7",
-    "boto3>=1.34",          # engine/kubeflow/storage.py
 ]
 notebook = [
     "ipykernel>=6.29",
 ]
 dev = [
+    {include-group = "engine"},
     {include-group = "lint"},
     {include-group = "test"},
     {include-group = "tracking"},
@@ -88,7 +95,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 # A built wheel — and therefore the production image — contains ONLY this.
-packages = ["src/project_name"]
+packages = ["src/core"]
 # ...but an editable install also puts the repo root on sys.path, which is what
 # makes `pipelines`, `tracking` and `viz` importable during development without
 # any sys.path.insert() calls. This one setting is what lets the dev roots stay
@@ -98,16 +105,16 @@ dev-mode-dirs = [".", "src"]
 # ── Entrypoints ───────────────────────────────────────────────────────────────
 [project.scripts]
 # Production. Resolves from the wheel.
-serve = "project_name.serving.app:run"
+serve = "core.serving.app:run"
 # Development only. Resolves from an editable install, via dev-mode-dirs above;
 # it is deliberately absent from the production image.
-pipeline = "engine.runner:main"
+pipeline = "pipelines.runner:main"
 
 # ── Tooling ───────────────────────────────────────────────────────────────────
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-# Mirrors dev-mode-dirs above, and for the same reason: "src" makes project_name
+# Mirrors dev-mode-dirs above, and for the same reason: "src" makes core
 # first-party, "." makes the dev roots first-party. Listing "pipelines" here
 # instead would make its *submodules* top-level and scramble import sorting.
 src = ["src", "."]
@@ -116,7 +123,7 @@ src = ["src", "."]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["project_name", "pipelines", "tracking", "viz"]
+known-first-party = ["core", "pipelines", "viz"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -136,7 +143,7 @@ ignore_missing_imports = true
 # docs/architecture.md describes this boundary; these contracts are what actually
 # hold it. `make lint` and CI both run `lint-imports`.
 [tool.importlinter]
-root_packages = ["project_name", "pipelines", "engine", "viz"]
+root_packages = ["core", "pipelines", "viz", "priceshape_ml"]
 # Required because the contracts below forbid third-party packages (mlflow, dvc,
 # streamlit, kfp), not just internal ones.
 include_external_packages = true
@@ -144,19 +151,18 @@ include_external_packages = true
 [[tool.importlinter.contracts]]
 name = "Production code never imports dev-only tooling"
 type = "forbidden"
-source_modules = ["project_name"]
+source_modules = ["core"]
 forbidden_modules = [
     "mlflow",
     "dvc",
     "streamlit",
     "kfp",
-    "engine",
+    "priceshape_ml",
     "pipelines",
     "viz",
 ]
 
-[[tool.importlinter.contracts]]
-name = "The MLflow logger stays independent of the DAG engine"
-type = "forbidden"
-source_modules = ["engine.tracking"]
-forbidden_modules = ["engine.dag", "engine.runner", "engine.gitgate", "pipelines", "viz", "kfp", "streamlit"]
+# TEMPORARY, for verifying before priceshape-ml is pushed. Delete this block once
+# the package repository exists — the git reference above is the real source.
+[tool.uv.sources]
+priceshape-ml = { path = "../priceshape-ml", editable = true }

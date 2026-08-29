@@ -1,7 +1,7 @@
-"""Typed configuration. `from project_name.config import CONFIG`."""
+"""Typed configuration. `from core.config import CONFIG`."""
 
-from project_name.config.constants import PROJECT_ROOT, discover_project_root
-from project_name.config.hyperparameters import (
+from core.config.constants import PROJECT_ROOT, discover_project_root
+from core.config.hyperparameters import (
     CONFIG,
     Config,
     Device,
