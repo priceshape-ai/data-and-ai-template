@@ -359,7 +359,7 @@ own. Taking a new one is two steps:
 ```toml
 # pyproject.toml
 engine = [
-    "priceshape-ml[tracking,data] @ git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.3.0#subdirectory=priceshape-ml",
+    "priceshape-ml[tracking,data] @ git+https://github.com/priceshape-ai/data-and-ai-template@engine-v0.3.0#subdirectory=priceshape-ml",
 ]
 ```
 
@@ -375,13 +375,11 @@ The engine's source is in the template repository under `priceshape-ml/`. Changi
 it is work you do there, not here — `TEMPLATE_README.md` in that repository has the
 release steps.
 
-> **CI needs `ENGINE_TOKEN`.** The template repository is private and this
-> project's `GITHUB_TOKEN` cannot read it, so `.github/workflows/ci.yml` expects an
-> organisation secret that can clone it. Without the secret the install step fails
-> with a notice naming it — ask whoever administers the `priceshape-ai`
-> organisation. The production image is unaffected: `uv sync --no-dev` selects no
-> dependency group and never fetches the engine, which is why the production jobs
-> stay green either way.
+> **No credential is needed.** The template repository is public and the URL is
+> `git+https://`, so this installs with nothing configured — no SSH key, no secret,
+> in CI or on a laptop. Keep it `https`: an `ssh://` URL would need a key even
+> against a public repository. The production image never fetches the engine at
+> all, because `uv sync --no-dev` selects no dependency group.
 
 ### Build the container
 

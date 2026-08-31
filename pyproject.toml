@@ -41,12 +41,16 @@ dependencies = [
 # deliberately. uv records the tag's exact commit in uv.lock, so the pin is a SHA
 # in practice even though the URL names a tag.
 #
-# The template repository is private, so CI needs a credential to fetch this —
-# see the "Allow fetching the shared engine" step in .github/workflows/ci.yml.
-# The production image never fetches it at all: `uv sync --no-dev` skips every
+# https, not ssh, and deliberately: the template repository is public, so this
+# resolves with no credential at all — no SSH key on a laptop, no secret in CI, in
+# this project or any generated from it. An ssh:// URL would need a key even
+# against a public repository. If the template is ever made private again, this
+# line is what stops working, and every consumer needs a credential from then on.
+#
+# The production image never fetches it either way: `uv sync --no-dev` skips every
 # dependency group, which is exactly the boundary this split exists to hold.
 engine = [
-    "priceshape-ml[tracking,data] @ git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.2.0#subdirectory=priceshape-ml",
+    "priceshape-ml[tracking,data] @ git+https://github.com/priceshape-ai/data-and-ai-template@engine-v0.2.1#subdirectory=priceshape-ml",
 ]
 lint = [
     "ruff>=0.6",

@@ -28,56 +28,25 @@ jobs:
         with:
           enable-cache: true
 
-      # The `engine` dependency group installs priceshape-ml from a subdirectory
-      # of the template repository, which is private, and a runner has no SSH key
-      # — so without a credential the sync fails with "Permission denied
-      # (publickey)". Rewriting ssh:// to authenticated https lets uv fetch the
-      # pinned commit without changing what pyproject.toml says, so a developer
-      # with their own SSH key is unaffected.
+      # The engine is installed from a subdirectory of the template repository,
+      # which is public — so this resolves with no credential, in this repository
+      # and in every project generated from it. Nothing to configure.
       #
-      # Two credentials can serve, and which one is available says where you are:
-      #
-      #   ENGINE_TOKEN   an organisation secret that can clone
-      #                  priceshape-ai/data-and-ai-template. This is what a
-      #                  generated project needs.
-      #   GITHUB_TOKEN   always present, but scoped to the repository running the
-      #                  job. That is enough in the template repository itself,
-      #                  where the engine source is in this very repository, and
-      #                  it is not enough anywhere else.
-      #
-      # So the fallback keeps the template green with no secret to configure, and
-      # a generated project still fails loudly until ENGINE_TOKEN exists. Only the
-      # name of the credential is ever echoed; the runner is discarded after the
-      # job.
-      - name: Allow fetching the shared engine
-        env:
-          ENGINE_TOKEN: ${{ secrets.ENGINE_TOKEN }}
-          FALLBACK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # This probe exists for one failure: if the template is ever made private
+      # again, `uv sync` fails partway through a 200-package resolve with
+      # `remote: Repository not found`, because GitHub reports no-access to a
+      # private repository as a 404. That message names neither the cause nor the
+      # fix. The remote is read out of pyproject.toml so it is not written twice.
+      - name: Check the shared engine is reachable
         run: |
-          if [ -n "$ENGINE_TOKEN" ]; then
-            token="$ENGINE_TOKEN"
-            source="ENGINE_TOKEN"
-          else
-            token="$FALLBACK_TOKEN"
-            source="GITHUB_TOKEN"
-          fi
-          git config --global \
-            url."https://x-access-token:${token}@github.com/".insteadOf \
-            "ssh://git@github.com/"
-
-          # Prove the credential works before uv needs it. Without this the failure
-          # surfaces as `remote: Repository not found` in the middle of a dependency
-          # resolve — GitHub reports "no access to a private repository" as 404, so
-          # the one message you get names neither the cause nor the fix. The remote
-          # is read out of pyproject.toml rather than written here twice.
-          engine=$(sed -n 's|.*git+\(ssh://[^"#]*\).*|\1|p' pyproject.toml | head -1)
+          engine=$(sed -n 's|.*git+\(https://[^"#]*\).*|\1|p' pyproject.toml | head -1)
           engine=${engine%@*}
           if [ -z "$engine" ]; then
-            echo "No engine git dependency found in pyproject.toml; nothing to authenticate."
+            echo "No engine git dependency in pyproject.toml; nothing to check."
           elif git ls-remote "$engine" HEAD >/dev/null 2>&1; then
-            echo "Engine fetch: ${engine} reachable, authenticated over https using ${source}."
+            echo "Engine reachable anonymously: ${engine}"
           else
-            echo "::error title=ENGINE_TOKEN is missing::Cannot read ${engine}, so the shared engine cannot be installed. It is a private repository and ${source} has no access to it. Fix: add an organisation secret named ENGINE_TOKEN — a fine-grained personal access token, or a GitHub App installation token, with Contents:Read on priceshape-ai/data-and-ai-template. Nothing else in this repository needs it: the production install and the container image never fetch the engine."
+            echo "::error title=Shared engine unreachable::Cannot read ${engine} without credentials. It was public; if it has been made private, every project generated from this template needs a credential to install the engine — add an organisation secret with Contents:Read on it and restore the token rewrite in this step. The production install and the container image are unaffected: they never fetch the engine."
             exit 1
           fi
 
@@ -114,10 +83,10 @@ jobs:
       # ever grows an `import mlflow`, this step fails with ModuleNotFoundError —
       # which is the failure we want, and much earlier than a broken deploy.
       #
-      # Note there is no engine-credential step in this job, and there must not
+      # Note there is no engine-reachability step in this job, and there must not
       # be: --no-dev selects no dependency group, so the shared engine is never
-      # fetched. If this job ever starts needing ENGINE_TOKEN, something has put
-      # the engine into [project].dependencies and the boundary has been broken.
+      # fetched. If this job ever starts needing the engine, something has put it
+      # into [project].dependencies and the boundary has been broken.
       - name: Install production dependencies only
         run: uv sync --locked --no-dev
 

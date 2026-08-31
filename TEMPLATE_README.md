@@ -191,7 +191,7 @@ Projects consume it as a pinned git dependency, never as a path:
 
 ```toml
 engine = [
-    "priceshape-ml[tracking,data] @ git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.2.0#subdirectory=priceshape-ml",
+    "priceshape-ml[tracking,data] @ git+https://github.com/priceshape-ai/data-and-ai-template@engine-v0.2.1#subdirectory=priceshape-ml",
 ]
 ```
 
@@ -238,26 +238,32 @@ uv lock
 Nothing moves under a project until someone does step 3. That is the point of the
 pin — and `uv.lock` records the tag's commit, so the pin is a SHA in practice.
 
-### `ENGINE_TOKEN`
+### No credential is needed to install the engine
 
-This repository is private, and `GITHUB_TOKEN` is scoped to the repository that
-calls it — so a *generated* project's CI cannot clone this one to fetch the engine.
-`ci.yml` expects an organisation secret named `ENGINE_TOKEN`: a read-only token
-that can clone `priceshape-ai/data-and-ai-template`. With it set, the workflow
-rewrites `ssh://` to authenticated `https://`.
+**This repository is public, and the engine URL is `git+https://`.** Together those
+mean a generated project installs the engine with nothing configured: no SSH key on
+a laptop, no secret in CI, no organisation involvement. That is the whole reason the
+repository is public — it is a deliberate trade, and the alternative was a token in
+every project.
 
-Without it the workflow falls back to `GITHUB_TOKEN`, which is enough **here** and
-nowhere else: in this repository the engine source *is* the repository the job is
-running in. So the template stays green with no secret to configure, and a
-generated project fails with a notice naming the secret rather than an opaque
-`Permission denied (publickey)`.
+`https` rather than `ssh` matters even so. An `ssh://` URL needs a key *even against
+a public repository*, so it would still have failed on a runner. If you change that
+line, keep it `https`.
 
-It sits alongside `OIDC_ROLE_ARN`, which `build.yml` needs for ECR. Neither is
-stored in a repository.
+The one thing that would break this is **making the repository private again**. Then
+every project generated from it stops installing, all at once, with
+`remote: Repository not found` — GitHub reports no-access to a private repository as
+a 404. `ci.yml`'s "Check the shared engine is reachable" step exists for exactly
+that moment: it probes the remote before uv needs it and fails with a message naming
+the cause. Restoring service would mean a read-only credential in an organisation
+secret and a URL rewrite in that step.
 
-Two things do **not** need it, and that is deliberate: a developer with a GitHub SSH
-key (the URL is already `ssh://`), and the production image (`uv sync --no-dev`
-selects no dependency group, so it never fetches the engine at all).
+`OIDC_ROLE_ARN` is still an organisation secret — `build.yml` needs it for ECR — but
+nothing about the engine does.
+
+The production path never fetched the engine under any of these arrangements:
+`uv sync --no-dev` selects no dependency group, so neither the production install
+nor the image touches it.
 
 ---
 

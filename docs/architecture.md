@@ -75,7 +75,7 @@ dependency group:
 
 ```
 priceshape-ml[tracking,data] @
-  git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.2.0#subdirectory=priceshape-ml
+  git+https://github.com/priceshape-ai/data-and-ai-template@engine-v0.2.1#subdirectory=priceshape-ml
 ```
 
 uv resolves the tag once and records the commit it pointed at, so `uv.lock` pins a
@@ -113,18 +113,36 @@ during bootstrapping — GitHub rejects any `GITHUB_TOKEN` push that touches
 `.github/workflows/`. It is inert instead: a path filter that no change in a
 generated project can match, plus a directory check for the manual trigger.
 
-### What this costs a private repository
+### Why the repository is public
 
-The template repository is private, so fetching the engine needs a credential that
-`GITHUB_TOKEN` cannot supply — it is scoped to the calling repository alone. A
-generated project's CI therefore needs `ENGINE_TOKEN`, an organisation secret that
-can clone the template; `ci.yml` uses it to rewrite `ssh://` to authenticated
-`https://`, which leaves a developer's own SSH key untouched.
+Because a private one made every generated project need a credential.
 
-The production path needs none of it. `uv sync --no-dev` selects no dependency
-group, so the image never fetches the engine at all. If the production CI job ever
-starts asking for `ENGINE_TOKEN`, that is the signal that something has moved the
-engine into `[project.dependencies]` and the boundary has broken.
+`GITHUB_TOKEN` is scoped to the repository running the job, so a project generated
+from a private template could not clone the template to fetch the engine. GitHub
+reports that as `remote: Repository not found`, partway through a 200-package
+resolve — a message naming neither the cause nor the fix. The alternatives were all
+a standing credential: an organisation PAT that expires and takes every project's
+CI down with it, a deploy key, or a GitHub App.
+
+Making the repository public removes the credential entirely. It was weighed against
+what publication exposes: no credentials and no customer data are in the history —
+that was audited — but the AWS account id, the `DataDevRole` ARN, both S3 bucket
+names and the MLflow hostnames are, and a public repository publishes its whole
+history, permanently.
+
+Two consequences to keep in mind:
+
+- **The URL must stay `https`.** An `ssh://` URL needs a key even against a public
+  repository, so it would still fail on a CI runner.
+- **Making the repository private again breaks every generated project at once.**
+  `ci.yml` probes the engine remote before uv needs it, so that failure at least
+  arrives with a message that names it.
+
+The production path never needed a credential under any arrangement: `uv sync
+--no-dev` selects no dependency group, so neither the production install nor the
+image fetches the engine. If a production job ever starts needing one, that is the
+signal that something has moved the engine into `[project.dependencies]` and the
+boundary has broken.
 
 ## One DAG engine, not two
 

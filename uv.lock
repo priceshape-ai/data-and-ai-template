@@ -3131,8 +3131,8 @@ wheels = [
 
 [[package]]
 name = "priceshape-ml"
-version = "0.2.0"
-source = { git = "ssh://git@github.com/priceshape-ai/data-and-ai-template?subdirectory=priceshape-ml&rev=engine-v0.2.0#9960f38b522cafb997d5d14ee883c266c334af63" }
+version = "0.2.1"
+source = { git = "https://github.com/priceshape-ai/data-and-ai-template?subdirectory=priceshape-ml&rev=engine-v0.2.1#ed2bc59f33da76823e4c601481473ba61bd66563" }
 
 [package.optional-dependencies]
 data = [
@@ -3218,14 +3218,14 @@ dev = [
     { name = "mlflow-skinny", specifier = ">=3.0" },
     { name = "mypy", specifier = ">=1.11" },
     { name = "pre-commit", specifier = ">=3.7" },
-    { name = "priceshape-ml", extras = ["tracking", "data"], git = "ssh://git@github.com/priceshape-ai/data-and-ai-template?subdirectory=priceshape-ml&rev=engine-v0.2.0" },
+    { name = "priceshape-ml", extras = ["tracking", "data"], git = "https://github.com/priceshape-ai/data-and-ai-template?subdirectory=priceshape-ml&rev=engine-v0.2.1" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-cov", specifier = ">=5.0" },
     { name = "ruff", specifier = ">=0.6" },
     { name = "streamlit", specifier = ">=1.35" },
     { name = "watchdog", specifier = ">=6.0" },
 ]
-engine = [{ name = "priceshape-ml", extras = ["tracking", "data"], git = "ssh://git@github.com/priceshape-ai/data-and-ai-template?subdirectory=priceshape-ml&rev=engine-v0.2.0" }]
+engine = [{ name = "priceshape-ml", extras = ["tracking", "data"], git = "https://github.com/priceshape-ai/data-and-ai-template?subdirectory=priceshape-ml&rev=engine-v0.2.1" }]
 lint = [
     { name = "mypy", specifier = ">=1.11" },
     { name = "pre-commit", specifier = ">=3.7" },
