@@ -78,8 +78,9 @@ fix it.
 The name check needs no setting anyone has to remember, so it holds from the first
 push. `bootstrap.py` refuses the same thing locally, via `TEMPLATE_PROJECT_NAMES`.
 
-If you rename or fork this template, **update both that literal and
-`TEMPLATE_PROJECT_NAMES` in `bootstrap.py`** — they are the only things standing
+If you rename or fork this template, **update all three places that name it**:
+that literal, the two `if:` guards in `.github/workflows/engine.yml`, and
+`TEMPLATE_PROJECT_NAMES` in `bootstrap.py`. They are the only things standing
 between a fork and the failure above.
 
 It also exits early when `bootstrap.py` is already gone, so a second push cannot

@@ -23,6 +23,12 @@ on:
 
 jobs:
   engine:
+    # Template repository only. The path filter above is not sufficient on its own:
+    # on a repository's FIRST push every path counts as changed, so a newly
+    # generated project — which still contains priceshape-ml/ for exactly one
+    # commit, until bootstrap.py removes it — would match and run this once. A
+    # literal repository name, like bootstrap.yml uses and for the same reason.
+    if: github.repository == 'priceshape-ai/data-and-ai-template'
     name: priceshape-ml lint, types & tests
     runs-on: ubuntu-latest
     defaults:
@@ -77,6 +83,7 @@ jobs:
   # This is what catches a broken build backend or a missing package file before
   # a project bumps its pin and discovers it.
   installable:
+    if: github.repository == 'priceshape-ai/data-and-ai-template'
     name: Installs as a pinned git dependency
     runs-on: ubuntu-latest
     steps:

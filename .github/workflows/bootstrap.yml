@@ -100,6 +100,18 @@ jobs:
             "repos/${{ github.repository }}/actions/workflows/bootstrap.yml/disable" \
             || echo "Could not disable the workflow; it is inert regardless."
 
+      # The commit above was pushed with GITHUB_TOKEN, and GitHub does not trigger
+      # workflows on those — a recursion guard. Without this dispatch the only CI a
+      # generated repository ever ran was against the raw template, on the initial
+      # commit, and the bootstrapped code was never checked at all.
+      - name: Run CI on the bootstrapped commit
+        if: steps.check.outputs.run == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run ci.yml --ref "${GITHUB_REF_NAME}" \
+            || echo "Could not dispatch CI; it will run on the next push."
+
       - name: Next steps
         if: steps.check.outputs.run == 'true'
         run: |

@@ -12,6 +12,10 @@ on:
   push:
     branches: [main]
   pull_request:
+  # bootstrap.yml dispatches this after it commits. A push made with GITHUB_TOKEN
+  # does not trigger workflows — GitHub's recursion guard — so without this the
+  # only CI a new repository ever ran was against the unbootstrapped template.
+  workflow_dispatch:
 
 jobs:
   quality:
@@ -56,12 +60,26 @@ jobs:
           else
             token="$FALLBACK_TOKEN"
             source="GITHUB_TOKEN"
-            echo "::notice::ENGINE_TOKEN is not set; falling back to GITHUB_TOKEN, which can only read the repository running this job. That is enough while the engine source lives here. In a project generated from this template it is not, and the install below will fail — add ENGINE_TOKEN as an organisation secret: a read-only token that can clone priceshape-ai/data-and-ai-template."
           fi
           git config --global \
             url."https://x-access-token:${token}@github.com/".insteadOf \
             "ssh://git@github.com/"
-          echo "Engine fetch: authenticated over https using ${source}."
+
+          # Prove the credential works before uv needs it. Without this the failure
+          # surfaces as `remote: Repository not found` in the middle of a dependency
+          # resolve — GitHub reports "no access to a private repository" as 404, so
+          # the one message you get names neither the cause nor the fix. The remote
+          # is read out of pyproject.toml rather than written here twice.
+          engine=$(sed -n 's|.*git+\(ssh://[^"#]*\).*|\1|p' pyproject.toml | head -1)
+          engine=${engine%@*}
+          if [ -z "$engine" ]; then
+            echo "No engine git dependency found in pyproject.toml; nothing to authenticate."
+          elif git ls-remote "$engine" HEAD >/dev/null 2>&1; then
+            echo "Engine fetch: ${engine} reachable, authenticated over https using ${source}."
+          else
+            echo "::error title=ENGINE_TOKEN is missing::Cannot read ${engine}, so the shared engine cannot be installed. It is a private repository and ${source} has no access to it. Fix: add an organisation secret named ENGINE_TOKEN — a fine-grained personal access token, or a GitHub App installation token, with Contents:Read on priceshape-ai/data-and-ai-template. Nothing else in this repository needs it: the production install and the container image never fetch the engine."
+            exit 1
+          fi
 
       - name: Install
         run: uv sync --locked
