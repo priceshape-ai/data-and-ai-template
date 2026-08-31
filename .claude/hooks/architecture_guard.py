@@ -159,7 +159,10 @@ def check(path_text: str, content: str) -> None:
             )
 
     # ── Production dependencies gaining weight ───────────────────────────────
-    if name == "pyproject.toml":
+    # Only this project's own manifest. A nested distribution — priceshape-ml/,
+    # whose whole job is to own mlflow, kfp and dvc — declares them legitimately,
+    # and its extras are not this repository's production contract.
+    if name == "pyproject.toml" and len(parts) == 1:
         prod_block = content.split("[dependency-groups]")[0]
         if "dependencies = [" in prod_block:
             section = prod_block.split("dependencies = [", 1)[1].split("]", 1)[0]

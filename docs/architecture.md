@@ -12,8 +12,14 @@ container runs. `pipelines/`, the `priceshape-ml` package and `viz/` are separat
 src/core/   →  in the wheel, in the image, runs in production
 pipelines/              →  development only (the graph and its wiring)
 viz/                    →  development only (the explorer)
-priceshape-ml           →  a dependency, not a directory
+priceshape-ml           →  a dependency, not a root
 ```
+
+In a generated project that is the whole list: `priceshape-ml` arrives as an
+installed wheel and there is no fourth directory. The template repository has one
+more — `priceshape-ml/`, the engine's own source — and
+[Where the engine lives](#where-the-engine-lives) explains why it sits there and
+why `bootstrap.py` deletes it on the way out.
 
 Everything else follows from that. Ask "what runs in production?" and the answer is
 one directory rather than a judgement call about eight files at the repository root.
@@ -56,6 +62,69 @@ and scramble import sorting.
 
 The cost: with `.` on the path, `tests` and `scripts` are importable names in
 development. It disappears in the wheel.
+
+## Where the engine lives
+
+`priceshape-ml` is a separate distribution with its own `pyproject.toml`, its own
+lockfile and its own tests. Its *source* lives in this repository, at
+`priceshape-ml/`. Those two facts are not in tension, and the arrangement is
+deliberate.
+
+A project depends on it the ordinary way — a pinned git reference in the `engine`
+dependency group:
+
+```
+priceshape-ml[tracking,kubeflow,data] @
+  git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.1.0#subdirectory=priceshape-ml
+```
+
+uv resolves the tag once and records the commit it pointed at, so `uv.lock` pins a
+SHA even though the URL names a tag. Bumping the pin is a deliberate edit, never a
+surprise.
+
+### Why one repository and not two
+
+The engine and the template change together. A new node-configuration field means
+an engine change *and* a template change; splitting them across two repositories
+means two pull requests, two reviews, and a window in which `main` of one does not
+work with `main` of the other. Here they land in one commit, and
+`.github/workflows/engine.yml` checks the engine on the same push that checks the
+template.
+
+The cost is one piece of discipline: **the engine must never import the project.**
+It reads `log_level`, `paths`, `mlflow` and `kubeflow` off a duck-typed config
+object and matches `NodeResult` structurally through a `runtime_checkable`
+Protocol, so it never imports `core` or `pipelines`. Living in the same
+repository makes that easy to violate by accident, which is why the engine's tests
+build against a `StubConfig` that shares nothing with this project.
+
+### Why generated projects do not keep a copy
+
+GitHub's **Use this template** copies the entire tree, `priceshape-ml/` included.
+A copy left in place would be an unpinned second engine, drifting from the one the
+lockfile actually installs — exactly the failure this arrangement exists to
+prevent, and the one that produced two near-identical MLflow loggers in the older
+projects. So `bootstrap.py` removes the directory and the `engine-check` make
+target as part of scaffolding removal, and `SKIP_DIRS` keeps the substitution pass
+out of it on the way past.
+
+`.github/workflows/engine.yml` survives, because nothing can delete a workflow file
+during bootstrapping — GitHub rejects any `GITHUB_TOKEN` push that touches
+`.github/workflows/`. It is inert instead: a path filter that no change in a
+generated project can match, plus a directory check for the manual trigger.
+
+### What this costs a private repository
+
+The template repository is private, so fetching the engine needs a credential that
+`GITHUB_TOKEN` cannot supply — it is scoped to the calling repository alone. A
+generated project's CI therefore needs `ENGINE_TOKEN`, an organisation secret that
+can clone the template; `ci.yml` uses it to rewrite `ssh://` to authenticated
+`https://`, which leaves a developer's own SSH key untouched.
+
+The production path needs none of it. `uv sync --no-dev` selects no dependency
+group, so the image never fetches the engine at all. If the production CI job ever
+starts asking for `ENGINE_TOKEN`, that is the signal that something has moved the
+engine into `[project.dependencies]` and the boundary has broken.
 
 ## One DAG engine, not two
 
@@ -154,9 +223,9 @@ It steps aside in three cases, and the first is the important one:
 Nothing is exempt from the dirty check, including the config directory. Config *is*
 the experiment; exempting it is what makes a recorded SHA a lie.
 
-Git introspection lives in `gitgate.py`, not in the `priceshape-ml` package, so the MLflow logger
+Git introspection lives in `gitgate.py`, not in `tracking.py`, so the MLflow logger
 stays a pure function of its arguments and never shells out. That is also why
-the `priceshape-ml` package is forbidden from importing `pipelines/` — the tags are passed in.
+`priceshape_ml` is forbidden from importing `pipelines/` — the tags are passed in.
 
 ## Failure modes that shaped the code
 

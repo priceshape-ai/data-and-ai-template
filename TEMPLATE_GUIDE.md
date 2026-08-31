@@ -128,8 +128,9 @@ Everything here is yours. The machinery that used to sit alongside it is now the
 └── .data.dvc  .models.dvc     # DVC pointers — created by `make dvc-pull`, then committed
 ```
 
-The package is a development dependency, so it is absent from the production image
-exactly as the old the `priceshape-ml` package directory was. The one part worth knowing about is
+The package is a development dependency, so it is absent from the production image,
+exactly as the in-repository `engine/` directory it replaced was. The one part
+worth knowing about is
 `priceshape_ml.kubeflow`, which decides how a run is assembled into cluster tasks —
 see [Running on the cluster](#run-the-same-graph-on-the-cluster).
 
@@ -352,6 +353,37 @@ Groups are never installed by `pip install .` and never reach the image. The gua
 refuses `mlflow`, `dvc`, `streamlit` or `kfp` in the production list — `dvc` alone
 pulls in about sixty packages a serving API never calls.
 
+### Bump the shared engine
+
+`priceshape-ml` — the DAG, the runner, the git gate, MLflow logging, the DVC sync —
+is pinned to a tag in the `engine` group, so a change to it never arrives on its
+own. Taking a new one is two steps:
+
+```toml
+# pyproject.toml
+engine = [
+    "priceshape-ml[tracking,kubeflow,data] @ git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.2.0#subdirectory=priceshape-ml",
+]
+```
+
+```bash
+uv lock && uv sync && make check
+```
+
+`uv.lock` records the commit the tag pointed at, so the pin is a SHA in practice —
+re-tagging upstream cannot move you. Commit `pyproject.toml` and `uv.lock`
+together; a lockfile that disagrees with its manifest fails CI at `uv sync --locked`.
+
+The engine's source is in the template repository under `priceshape-ml/`. Changing
+it is work you do there, not here — `TEMPLATE_README.md` in that repository has the
+release steps.
+
+> **CI needs `ENGINE_TOKEN`.** The template repository is private and this
+> project's `GITHUB_TOKEN` cannot read it, so `.github/workflows/ci.yml` expects an
+> organisation secret that can clone it. Without the secret the install step fails
+> with a warning naming it. The production image is unaffected: `uv sync --no-dev`
+> selects no dependency group and never fetches the engine.
+
 ### Build the container
 
 ```bash
@@ -360,8 +392,8 @@ make docker-verify     # build, then prove no dev tooling got in
 make docker-run        # run it locally
 ```
 
-The image is multi-stage and contains `src/` and nothing else — no the `priceshape-ml` package, no
-`pipelines/`, no `viz/`, and none of the dev-only packages. `make docker-verify`
+The image is multi-stage and contains `src/` and nothing else — no `priceshape_ml`,
+no `pipelines/`, no `viz/`, and none of the dev-only packages. `make docker-verify`
 asserts exactly that, and CI runs the same check before any tag is pushed.
 
 Model weights are **not** baked in. They arrive at `/app/.models` by mount or sync
@@ -691,6 +723,7 @@ are never published and never installed by `pip install .`:
 
 | Group | Contents |
 |---|---|
+| `engine` | priceshape-ml, pinned to an `engine-v*` tag |
 | `lint` | ruff, mypy, pre-commit |
 | `test` | pytest, httpx2, import-linter |
 | `tracking` | mlflow-skinny (the client; the server is remote) |

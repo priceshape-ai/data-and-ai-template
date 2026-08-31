@@ -46,6 +46,17 @@ ROOT = Path(__file__).resolve().parent
 # Deleted once bootstrapping succeeds — they only exist to bootstrap.
 SCAFFOLDING = ("bootstrap.py", "TEMPLATE_README.md")
 
+# Directories that belong to the template repository and must not survive into a
+# generated project. `priceshape-ml/` is the shared engine's source: it lives here
+# so that a fix and the template change that needs it land in one commit, but a
+# project consumes it as a pinned dependency (see the `engine` group in
+# pyproject.toml). Leaving a copy behind would recreate exactly the drift this
+# arrangement exists to prevent — two near-identical engines, silently diverging.
+TEMPLATE_ONLY_DIRS = ("priceshape-ml",)
+
+# Make targets that only make sense while the engine source is present.
+TEMPLATE_ONLY_TARGETS = ("engine-check",)
+
 # Never walked into.
 SKIP_DIRS = frozenset(
     {
@@ -62,6 +73,10 @@ SKIP_DIRS = frozenset(
         ".models",
         "runs",
         "mlruns",
+        # The bundled engine is a separate distribution with its own history and
+        # its own name. Substituting this project's sentinels into it would
+        # rewrite `priceshape_ml` imports; it is removed wholesale instead.
+        "priceshape-ml",
     }
 )
 
@@ -98,8 +113,8 @@ SKIP_SUFFIXES = frozenset(
 )
 
 # Bootstrapping the template itself is destructive and near-irrecoverable: it
-# renames the package, substitutes every token and deletes this script, leaving no
-# way to generate a correctly-named project again. The workflow guards against it
+# substitutes every token, removes the engine source and deletes this script,
+# leaving no way to generate a correctly-named project again. The workflow guards against it
 # too, but this catches a local `python bootstrap.py` run in a template checkout.
 TEMPLATE_PROJECT_NAMES = frozenset({"data-and-ai-template", "ml-project-template"})
 
@@ -380,7 +395,16 @@ def _ruff_command() -> list[str] | None:
         ["uvx", "ruff"],
     ]
     for command in candidates:
-        probe = subprocess.run([*command, "--version"], capture_output=True, text=True, check=False)
+        # check=False suppresses a non-zero exit, not a missing executable: probing
+        # a command that is not installed raises FileNotFoundError. Unhandled, that
+        # crashed bootstrap.py *after* it had rewritten every file, leaving a
+        # half-bootstrapped tree on any machine without a global ruff.
+        try:
+            probe = subprocess.run(
+                [*command, "--version"], capture_output=True, text=True, check=False
+            )
+        except OSError:
+            continue
         if probe.returncode == 0:
             return command
     return None
@@ -447,6 +471,15 @@ def remove_scaffolding(dry_run: bool) -> list[Path]:
             removed.append(path)
             if not dry_run:
                 path.unlink()
+
+    for name in TEMPLATE_ONLY_DIRS:
+        path = ROOT / name
+        if path.is_dir():
+            removed.append(path)
+            if not dry_run:
+                shutil.rmtree(path)
+                # The make targets that drove it would now point at nothing.
+                _drop_targets(list(TEMPLATE_ONLY_TARGETS))
 
     # The bootstrap workflow disables itself through the API rather than being
     # deleted here — see should_skip_workflow() for why a delete would be rejected.

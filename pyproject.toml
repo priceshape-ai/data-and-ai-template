@@ -34,10 +34,19 @@ dependencies = [
 [dependency-groups]
 # The shared engine: the DAG, the git gate, run logging and the data sync. It is
 # development-only, exactly like the directory it replaced — production serves a
-# model and never runs a pipeline. Pinned to a tag so nothing moves underneath a
-# project until someone bumps it deliberately.
+# model and never runs a pipeline.
+#
+# It is installed from a subdirectory of the template repository, pinned to an
+# `engine-v*` tag, so nothing moves underneath a project until someone bumps it
+# deliberately. uv records the tag's exact commit in uv.lock, so the pin is a SHA
+# in practice even though the URL names a tag.
+#
+# The template repository is private, so CI needs a credential to fetch this —
+# see the "Allow fetching the shared engine" step in .github/workflows/ci.yml.
+# The production image never fetches it at all: `uv sync --no-dev` skips every
+# dependency group, which is exactly the boundary this split exists to hold.
 engine = [
-    "priceshape-ml[tracking,kubeflow,data] @ git+ssh://git@github.com/priceshape-ai/priceshape-ml@v0.1.0",
+    "priceshape-ml[tracking,kubeflow,data] @ git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.1.0#subdirectory=priceshape-ml",
 ]
 lint = [
     "ruff>=0.6",
@@ -118,6 +127,11 @@ line-length = 100
 # first-party, "." makes the dev roots first-party. Listing "pipelines" here
 # instead would make its *submodules* top-level and scramble import sorting.
 src = ["src", "."]
+# The bundled engine is a separate distribution with its own pyproject, its own
+# ruff settings and its own CI job (.github/workflows/engine.yml). `make lint`
+# here checks this project. The directory does not exist in a generated project —
+# bootstrap.py removes it — so this line is inert there.
+extend-exclude = ["priceshape-ml"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
@@ -161,8 +175,3 @@ forbidden_modules = [
     "pipelines",
     "viz",
 ]
-
-# TEMPORARY, for verifying before priceshape-ml is pushed. Delete this block once
-# the package repository exists — the git reference above is the real source.
-[tool.uv.sources]
-priceshape-ml = { path = "../priceshape-ml", editable = true }

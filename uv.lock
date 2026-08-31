@@ -3339,7 +3339,7 @@ wheels = [
 [[package]]
 name = "priceshape-ml"
 version = "0.1.0"
-source = { editable = "../priceshape-ml" }
+source = { git = "ssh://git@github.com/priceshape-ai/data-and-ai-template?subdirectory=priceshape-ml&rev=engine-v0.1.0#d64911f9621f752e6e53bf8defe4153c9b014cb3" }
 dependencies = [
     { name = "boto3" },
 ]
@@ -3353,25 +3353,6 @@ kubeflow = [
 ]
 tracking = [
     { name = "mlflow-skinny" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "boto3", specifier = ">=1.34" },
-    { name = "dvc", extras = ["s3"], marker = "extra == 'data'", specifier = ">=3.50" },
-    { name = "kfp", marker = "extra == 'kubeflow'", specifier = ">=2.7" },
-    { name = "mlflow-skinny", marker = "extra == 'tracking'", specifier = ">=3.0" },
-    { name = "priceshape-ml", extras = ["tracking", "kubeflow", "data"], marker = "extra == 'all'" },
-]
-provides-extras = ["tracking", "kubeflow", "data", "all"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "mlflow-skinny", specifier = ">=3.0" },
-    { name = "mypy", specifier = ">=1.11" },
-    { name = "pytest", specifier = ">=8" },
-    { name = "pytest-cov", specifier = ">=5" },
-    { name = "ruff", specifier = ">=0.6" },
 ]
 
 [[package]]
@@ -3455,14 +3436,14 @@ dev = [
     { name = "mlflow-skinny", specifier = ">=3.0" },
     { name = "mypy", specifier = ">=1.11" },
     { name = "pre-commit", specifier = ">=3.7" },
-    { name = "priceshape-ml", extras = ["tracking", "kubeflow", "data"], editable = "../priceshape-ml" },
+    { name = "priceshape-ml", extras = ["tracking", "kubeflow", "data"], git = "ssh://git@github.com/priceshape-ai/data-and-ai-template?subdirectory=priceshape-ml&rev=engine-v0.1.0" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-cov", specifier = ">=5.0" },
     { name = "ruff", specifier = ">=0.6" },
     { name = "streamlit", specifier = ">=1.35" },
     { name = "watchdog", specifier = ">=6.0" },
 ]
-engine = [{ name = "priceshape-ml", extras = ["tracking", "kubeflow", "data"], editable = "../priceshape-ml" }]
+engine = [{ name = "priceshape-ml", extras = ["tracking", "kubeflow", "data"], git = "ssh://git@github.com/priceshape-ai/data-and-ai-template?subdirectory=priceshape-ml&rev=engine-v0.1.0" }]
 lint = [
     { name = "mypy", specifier = ">=1.11" },
     { name = "pre-commit", specifier = ">=3.7" },

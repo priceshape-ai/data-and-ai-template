@@ -1,0 +1,112 @@
+# IMPORTANT: this file must contain no placeholder tokens and no project/package
+# sentinels — see TEMPLATE_README.md for what those are.
+#
+# This job checks priceshape-ml/, the shared pipeline engine whose source lives in
+# this repository. It is guarded by a path filter rather than a repository-name
+# check: bootstrap.py deletes priceshape-ml/ from a generated project, and a
+# workflow that never matches a changed path never runs. That matters because
+# bootstrap.py cannot delete anything under .github/workflows/ — GitHub rejects a
+# GITHUB_TOKEN push that touches this directory — so this file *does* survive into
+# every generated project and must stay inert there.
+name: Engine
+
+on:
+  push:
+    paths:
+      - "priceshape-ml/**"
+      - ".github/workflows/engine.yml"
+  pull_request:
+    paths:
+      - "priceshape-ml/**"
+      - ".github/workflows/engine.yml"
+  workflow_dispatch:
+
+jobs:
+  engine:
+    name: priceshape-ml lint, types & tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: priceshape-ml
+    steps:
+      - uses: actions/checkout@v7
+
+      # workflow_dispatch has no path filter, so a manual run in a generated
+      # project would otherwise fail on a directory that is not there.
+      - name: Is the engine source present?
+        id: check
+        working-directory: .
+        run: |
+          if [ -d priceshape-ml ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No priceshape-ml/ here — this repository consumes the engine as a dependency."
+          fi
+
+      - uses: astral-sh/setup-uv@v7
+        if: steps.check.outputs.run == 'true'
+        with:
+          enable-cache: true
+
+      # The engine carries its own lockfile, resolved against its own pyproject.
+      # It shares nothing with the template's environment on purpose: a project
+      # installs a built wheel, so the engine has to stand up on its own.
+      - name: Install
+        if: steps.check.outputs.run == 'true'
+        run: uv sync --locked
+
+      - name: Lint
+        if: steps.check.outputs.run == 'true'
+        run: uv run ruff check .
+
+      - name: Format check
+        if: steps.check.outputs.run == 'true'
+        run: uv run ruff format --check .
+
+      - name: Type check
+        if: steps.check.outputs.run == 'true'
+        run: uv run mypy src
+
+      - name: Tests
+        if: steps.check.outputs.run == 'true'
+        run: uv run pytest
+
+  # The engine must stay installable the way projects actually install it: as a
+  # wheel built from a subdirectory of this repository, at the current commit.
+  # This is what catches a broken build backend or a missing package file before
+  # a project bumps its pin and discovers it.
+  installable:
+    name: Installs as a pinned git dependency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Is the engine source present?
+        id: check
+        run: |
+          if [ -d priceshape-ml ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: astral-sh/setup-uv@v7
+        if: steps.check.outputs.run == 'true'
+        with:
+          enable-cache: true
+
+      - name: Build and import the wheel
+        if: steps.check.outputs.run == 'true'
+        run: |
+          uv build --wheel priceshape-ml --out-dir /tmp/engine-dist
+          wheel=$(ls /tmp/engine-dist/*.whl | head -1)
+          echo "Built ${wheel}"
+          uv run --no-project --with "${wheel}" python -c "
+          import priceshape_ml, importlib.util
+          assert hasattr(priceshape_ml, 'run'), 'priceshape_ml.run is missing'
+          for module in ('dag', 'runner', 'gitgate', 'tracking', 'dvc_sync', 'result'):
+              assert importlib.util.find_spec('priceshape_ml.' + module), module
+          assert importlib.util.find_spec('priceshape_ml.kubeflow.node_runner')
+          print('engine wheel imports cleanly')
+          "

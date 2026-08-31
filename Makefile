@@ -4,7 +4,8 @@ IMAGE    := project-name
 RUN      ?=
 
 .PHONY: help install lint format typecheck imports test check run serve viz \
-        dvc-pull dvc-push dvc-add docker-build docker-run docker-verify clean
+        dvc-pull dvc-push dvc-add docker-build docker-run docker-verify clean \
+        engine-check
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -33,6 +34,14 @@ test:  ## Run the test suite
 	uv run pytest
 
 check: lint typecheck imports test  ## Everything CI runs
+
+# Template repository only. priceshape-ml/ is the shared engine's source; a
+# generated project consumes it as a pinned dependency and bootstrap.py removes
+# both the directory and this target. The engine has its own pyproject, its own
+# lockfile and its own tests, so it is checked on its own terms.
+engine-check:  ## Lint and test the bundled priceshape-ml engine (template only)
+	cd priceshape-ml && uv sync && uv run ruff check . && uv run ruff format --check . \
+		&& uv run mypy src && uv run pytest
 
 # ── running ───────────────────────────────────────────────────────────────────
 

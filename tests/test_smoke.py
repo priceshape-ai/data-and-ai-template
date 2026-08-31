@@ -77,6 +77,29 @@ def test_no_config_yaml(project_root) -> None:
         )
 
 
+def test_engine_is_not_a_local_path(project_root) -> None:
+    """The engine must be a pinned git dependency, never a path on someone's disk.
+
+    A `[tool.uv.sources]` override pointing at `../priceshape-ml` works on the one
+    machine that has that directory and bakes `source = { editable = "../..." }`
+    into uv.lock, which then fails every CI run and every Docker build with
+    "Distribution not found". It shipped once; this is what stops it shipping again.
+    """
+    text = (project_root / "pyproject.toml").read_text()
+    assert "[tool.uv.sources]" not in text, (
+        "pyproject.toml has a [tool.uv.sources] override. The engine must resolve "
+        "from its pinned git tag so that CI and the container can install it too."
+    )
+
+    lock = project_root / "uv.lock"
+    if lock.is_file():
+        for marker in ('editable = "../', 'path = "../'):
+            assert marker not in lock.read_text(), (
+                f"uv.lock references a path outside the repository ({marker!r}). "
+                "Re-lock with the git dependency: `uv lock`."
+            )
+
+
 def test_data_dirs_are_not_git_tracked(project_root) -> None:
     """DVC refuses to manage a directory git tracks anything inside.
 

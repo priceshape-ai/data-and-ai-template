@@ -10,7 +10,7 @@ artifacts/
 
 # ── Dev-only roots. These are what keeps them out of the image even if
 #    someone changes the Dockerfile's COPY lines. ─────────────────────────
-engine/
+priceshape-ml/
 pipelines/
 viz/
 notebooks/
@@ -51,10 +51,10 @@ htmlcov/
 # ── Template scaffolding ────────────────────────────────────────────────
 bootstrap.py
 TEMPLATE_README.md
-# README.md is NOT excluded: pyproject's `readme =` points at it, so the wheel
-# build needs it in the context. TEMPLATE_GUIDE.md
-CLAUDE.md nothing reads at build time.
 TEMPLATE_GUIDE.md
 CLAUDE.md
 Makefile
 deploy/
+# README.md is deliberately NOT excluded: pyproject's `readme =` points at it and
+# hatchling reads it while building the wheel, so the build needs it in the
+# context. Nothing reads TEMPLATE_GUIDE.md or CLAUDE.md at build time.
