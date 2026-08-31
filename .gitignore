@@ -44,7 +44,7 @@ coverage.xml
 # that git tracks anything inside — `dvc add .data` fails outright with
 # "output '.data' is already tracked by SCM" — so committing a placeholder to
 # preserve the layout breaks the tool it was meant to serve. `make dvc-pull`
-# creates these directories; `make dvc-init` sets them up the first time.
+# creates these directories the first time it runs.
 .data/
 .models/
 

@@ -29,7 +29,7 @@ from priceshape_ml.result import NodeResultLike
 from priceshape_ml.runner import run
 from priceshape_ml.tracking import collect_metrics, flatten_config, log_run
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 __all__ = [
     "DAG",

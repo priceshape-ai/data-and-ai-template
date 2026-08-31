@@ -29,6 +29,7 @@ for every other dvc command.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -48,7 +49,38 @@ CACHE_DIR = "files"
 
 
 def repo_root() -> Path:
-    return Path(__file__).resolve().parent.parent
+    """The project directory every `dvc` command below runs in.
+
+    Derived from the working directory, **never** from this file's location. It was
+    `Path(__file__).parent.parent`, which was the repository root for exactly as long
+    as this module lived at `<repo>/engine/`. The moment the engine shipped as an
+    installed package the same expression started resolving to `site-packages/`, and
+    every dvc call ran there — surfacing as "No .dvc/ directory", which reads like a
+    project that needs `dvc init` rather than a bug in here.
+
+    `.dvc` is searched for across the whole chain before the weaker markers, because
+    a nested distribution with its own `pyproject.toml` — `priceshape-ml/` inside the
+    template repository, say — would otherwise capture the search one level too low.
+    The walk stops at the repository boundary so it can never select a directory
+    outside the project.
+    """
+    if from_env := os.environ.get("PROJECT_ROOT"):
+        return Path(from_env).resolve()
+
+    origin = Path.cwd().resolve()
+    chain: list[Path] = []
+    for candidate in (origin, *origin.parents):
+        chain.append(candidate)
+        if (candidate / ".git").exists():
+            break
+
+    for candidate in chain:
+        if (candidate / ".dvc").is_dir():
+            return candidate
+    for candidate in chain:
+        if (candidate / "pyproject.toml").exists() or (candidate / ".git").exists():
+            return candidate
+    return origin
 
 
 def run(*args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
@@ -326,18 +358,33 @@ def retrack(root: Path) -> int:
     return 0
 
 
+def _no_dvc(root: Path) -> int:
+    """Report a missing `.dvc/`, naming where it looked.
+
+    Naming the path is the point: a project generated from the template ships
+    `.dvc/config`, so this almost always means the wrong directory was resolved
+    rather than a project that genuinely needs `dvc init`.
+    """
+    print(
+        f"No .dvc/ directory in {root}\n"
+        "  A project generated from the template ships one, so check you are running\n"
+        "  from the repository root. Set PROJECT_ROOT to override the search, or run\n"
+        "  `dvc init` if this really is a project that has never had DVC set up.",
+        file=sys.stderr,
+    )
+    return 1
+
+
 def main() -> int:
     root = repo_root()
 
     if "--add" in sys.argv[1:]:
         if not (root / ".dvc").is_dir():
-            print("No .dvc/ directory — run `dvc init` first.", file=sys.stderr)
-            return 1
+            return _no_dvc(root)
         return retrack(root)
 
     if not (root / ".dvc").is_dir():
-        print("No .dvc/ directory — run `dvc init` first.", file=sys.stderr)
-        return 1
+        return _no_dvc(root)
 
     urls = remote_urls(root)
     outcomes: dict[str, str] = {}
