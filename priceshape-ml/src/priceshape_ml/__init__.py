@@ -1,6 +1,6 @@
 """The machinery every PriceShape Data & AI project shares.
 
-A DAG that runs the same graph locally or on Kubeflow, the reproducibility gate,
+A DAG that turns a graph of callables into a cached run, the reproducibility gate,
 MLflow run logging, and the DVC sync. None of it knows anything about a
 particular project: what the steps are and how they are configured arrives as
 arguments, which is what lets one copy serve every repository.

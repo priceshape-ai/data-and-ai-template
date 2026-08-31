@@ -8,7 +8,7 @@ provenance points at code nobody else can obtain.
 Three conditions relax the gate, because in each case the check is either
 impossible or meaningless:
 
-- **No git repository.** Kubeflow pods, `docker build` and some CI checkouts have
+- **No git repository.** `docker build`, a container and some CI checkouts have
   no `.git`. The gate cannot answer the question, so it steps aside rather than
   failing. (This is the one that matters most: a gate that hard-fails wherever it
   cannot run is a gate that stops production.)

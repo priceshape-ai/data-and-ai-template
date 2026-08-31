@@ -231,13 +231,6 @@ def test_graph_reports_nodes_and_edges(tmp_path) -> None:
     }
 
 
-def test_kubeflow_backend_requires_config(tmp_path) -> None:
-    dag = _dag(tmp_path)
-    dag.add_node("source", Source(1))
-    with pytest.raises(ValueError, match="requires kubeflow_config"):
-        dag.run(backend="kubeflow")
-
-
 def test_hash_value_handles_dataclasses_containing_paths() -> None:
     """Config dataclasses hold Path fields; hashing must not choke on them."""
     from conftest import Paths as PathsConfig

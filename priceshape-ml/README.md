@@ -1,8 +1,8 @@
 # priceshape-ml
 
-The machinery every PriceShape Data & AI project shares: a DAG that runs one graph
-definition either locally or on Kubeflow, the reproducibility gate, MLflow run
-logging, and the DVC sync.
+The machinery every PriceShape Data & AI project shares: a DAG that turns a graph
+of callables into a cached run, the reproducibility gate, MLflow run logging, and
+the DVC sync.
 
 It knows nothing about any particular project. What the steps are and how they are
 configured arrive as arguments, which is what lets one copy serve every repository —
@@ -15,7 +15,7 @@ is a separate distribution with its own lockfile, its own tests and its own CI j
 and projects install it as a pinned wheel, never as a path.
 
 ```bash
-uv add "priceshape-ml[tracking,kubeflow,data] @ git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.1.0#subdirectory=priceshape-ml"
+uv add "priceshape-ml[tracking,data] @ git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.2.0#subdirectory=priceshape-ml"
 ```
 
 ## What a project provides
@@ -31,20 +31,19 @@ def main() -> int:
     return run(build_pipeline, CONFIG)
 ```
 
-`config` is duck-typed: the engine reads `log_level`, `paths`, `mlflow` and
-`kubeflow` off it and ignores everything else, so a project hangs its own
-hyperparameters beside those without this package needing to know.
+`config` is duck-typed: the engine reads `log_level`, `paths` and `mlflow` off it
+and ignores everything else, so a project hangs its own hyperparameters beside
+those without this package needing to know.
 
 ## Extras
 
 | Extra | Brings | Needed for |
 | --- | --- | --- |
 | `tracking` | `mlflow-skinny` | recording runs |
-| `kubeflow` | `kfp` | submitting to the cluster |
 | `data` | `dvc[s3]` | `priceshape_ml.dvc_sync` |
 
-The base install is `boto3` and nothing else, so a project that only wants the DAG
-does not inherit a cluster SDK to get it.
+The base install has **no dependencies at all**, so a project that only wants the
+DAG gets the DAG and nothing else.
 
 ## Working on it
 
@@ -61,9 +60,8 @@ builds a `StubConfig` that shares nothing with any project, which is what keeps 
 duck-typed config contract honest.
 
 **The engine must never import a project.** No `core`, no `pipelines`, no `viz`.
-It reads `log_level`, `paths`, `mlflow` and `kubeflow` off whatever config object it
-is handed, and matches `NodeResult` structurally through a `runtime_checkable`
-Protocol. Sharing a repository with the template makes that easy to break by
+It reads `log_level`, `paths` and `mlflow` off whatever config object it is handed,
+and matches `NodeResult` structurally through a `runtime_checkable` Protocol. Sharing a repository with the template makes that easy to break by
 accident; nothing but discipline and those tests prevents it.
 
 ## Releasing

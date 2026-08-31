@@ -1,7 +1,7 @@
 """Tests for the reproducibility gate.
 
 The most important case is `test_passes_outside_a_git_repo`: the gate must step
-aside where it cannot answer, because Kubeflow pods and Docker builds have no
+aside where it cannot answer, because Docker builds and containers have no
 `.git` and a gate that hard-fails there is a gate that stops production.
 """
 

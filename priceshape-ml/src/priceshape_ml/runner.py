@@ -38,12 +38,6 @@ class GraphBuilder(Protocol):
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the ML pipeline.")
     parser.add_argument(
-        "--backend",
-        choices=("auto", "local", "kubeflow"),
-        default="auto",
-        help="auto (default) picks kubeflow when KUBEFLOW_ENDPOINT is set.",
-    )
-    parser.add_argument(
         "--allow-dirty",
         action="store_true",
         help="Run despite uncommitted or unpushed changes. The MLflow run is "
@@ -66,8 +60,8 @@ def run(build: GraphBuilder, config: Any, argv: list[str] | None = None) -> int:
     """Run `build`'s graph under `config`. Returns a process exit code.
 
     `config` is duck-typed rather than a declared class: the engine reads only
-    `log_level`, `paths`, `mlflow` and `kubeflow` off it, and a project is free to
-    hang anything else it likes beside those.
+    `log_level`, `paths` and `mlflow` off it, and a project is free to hang anything
+    else it likes beside those.
     """
     args = parse_args(argv)
     logging.basicConfig(level=config.log_level, format="%(levelname)s %(name)s: %(message)s")
@@ -79,10 +73,6 @@ def run(build: GraphBuilder, config: Any, argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    backend = args.backend
-    if backend == "auto":
-        backend = "kubeflow" if config.kubeflow.enabled else "local"
-
     dag = DAG(
         cache_dir=config.paths.dag_cache,
         runs_dir=config.paths.runs_root,
@@ -92,25 +82,16 @@ def run(build: GraphBuilder, config: Any, argv: list[str] | None = None) -> int:
     )
     build(dag, config)
 
-    logger.info(
-        "Running %d nodes on the %s backend (cache: %s)",
-        len(dag.nodes),
-        backend,
-        dag.cache_dir,
-    )
-    timestamp, results = dag.run(
-        backend=backend,
-        kubeflow_config=config.kubeflow if backend == "kubeflow" else None,
-    )
+    logger.info("Running %d nodes (cache: %s)", len(dag.nodes), dag.cache_dir)
+    timestamp, results = dag.run()
 
-    _record(timestamp, results, backend, config)
+    _record(timestamp, results, config)
 
-    if backend == "local":
-        print(f"\nInspect this run:\n    make viz RUN={timestamp}")
+    print(f"\nInspect this run:\n    make viz RUN={timestamp}")
     return 0
 
 
-def _record(timestamp: str, results: dict, backend: str, config: Any) -> None:
+def _record(timestamp: str, results: dict, config: Any) -> None:
     """Log the run to MLflow, if the tracking group is installed and configured.
 
     Imported lazily and guarded: the pipeline must still run for someone who
@@ -129,7 +110,7 @@ def _record(timestamp: str, results: dict, backend: str, config: Any) -> None:
         )
         return
 
-    tags = {"backend": backend, **git_metadata()}
+    tags = git_metadata()
     log_run(
         timestamp=timestamp,
         results=results,

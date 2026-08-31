@@ -38,7 +38,7 @@ _MAX_PARAM_LEN = 500
 
 # Machine-specific or already-captured sections: logging them adds noise and makes
 # two identical runs on different machines look different.
-_SKIP_SECTIONS = frozenset({"paths", "mlflow", "kubeflow", "serving"})
+_SKIP_SECTIONS = frozenset({"paths", "mlflow", "serving"})
 
 
 def log_run(
@@ -149,7 +149,7 @@ def log_run(
                 "MLFLOW_TRACKING_USERNAME/PASSWORD will not get through it — "
                 "those are for MLflow's own basic-auth plugin. Use a URL that "
                 "reaches the server directly: the in-cluster address from a "
-                "Kubeflow pod, or a port-forward from a laptop. See .env.example."
+                "in-cluster address, or a port-forward from a laptop. See .env.example."
             )
         elif any(marker in lowered for marker in auth_markers):
             logger.warning(

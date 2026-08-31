@@ -31,30 +31,20 @@ class Mlflow:
         return bool(self.tracking_uri)
 
 
+# Nested one level deeper than the rest on purpose: flatten_config has to reach
+# through a node's sub-dataclass to produce `featurizer.tokenizer.max_length`, and
+# a stub with no nesting would not notice if it stopped.
 @dataclass(frozen=True)
-class Kubeflow:
-    endpoint: str = ""
-    experiment_name: str = "test"
-    s3_bucket: str = "test"
-    s3_endpoint: str = ""
-    base_image: str = "python:3.12-slim"
-
-    @property
-    def enabled(self) -> bool:
-        return bool(self.endpoint)
-
-
-@dataclass(frozen=True)
-class Resources:
-    cpu_request: str = "4"
-    memory_request: str = "16G"
+class Tokenizer:
+    max_length: int = 512
+    truncation: bool = True
 
 
 @dataclass(frozen=True)
 class Featurizer:
     model_name: str = "BAAI/bge-m3"
     batch_size: int = 32
-    resources: Resources = field(default_factory=Resources)
+    tokenizer: Tokenizer = field(default_factory=Tokenizer)
 
 
 @dataclass(frozen=True)
@@ -69,7 +59,6 @@ class StubConfig:
     log_level: str = "INFO"
     paths: Paths = field(default_factory=Paths)
     mlflow: Mlflow = field(default_factory=Mlflow)
-    kubeflow: Kubeflow = field(default_factory=Kubeflow)
     featurizer: Featurizer = field(default_factory=Featurizer)
     scorer: Scorer = field(default_factory=Scorer)
 

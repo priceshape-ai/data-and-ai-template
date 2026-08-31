@@ -1,9 +1,9 @@
-"""DAG engine: one graph definition, two execution backends.
+"""DAG engine: build a graph of callables, execute it, cache what it computed.
 
 A node is any callable. Its keyword parameters are named after the nodes it
 depends on, and the engine passes upstream results by name. That is the whole
-contract — components stay plain objects that know nothing about caching,
-Kubeflow or MLflow.
+contract — components stay plain objects that know nothing about caching or
+MLflow.
 
 **Caching.** A node's cache key is a hash of its `__call__` bytecode, its instance
 state (`vars(fn)`), and its upstream nodes' cache keys. So editing a component's
@@ -14,10 +14,9 @@ are cached in memory for the process and on disk under `.dag_cache/` across runs
 Because instance state is part of the key, keep node instances cheap and
 JSON-representable: hold the config, load models lazily inside `__call__`.
 
-**Backends.** `run(backend="local")` executes in-process. `run(backend="kubeflow")`
-compiles the same graph to a KFP pipeline, one pod per node, passing results
-through S3/MinIO instead of memory. Node resource requests come from
-`fn.cfg.resources`, so the graph carries its own scheduling requirements.
+**Execution is in-process.** One graph, one way to run it. There is no remote
+backend and no scheduler here: a node is a callable, and running the graph calls
+them in dependency order.
 """
 
 from __future__ import annotations
@@ -28,15 +27,13 @@ import inspect
 import json
 import logging
 import pickle
-import tempfile
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, is_dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
-Backend = Literal["local", "kubeflow"]
 RunResult = tuple[str, dict[str, Any]]
 
 _MISS = object()
@@ -159,22 +156,18 @@ class DAG:
                     raise ValueError(f"node {node.name!r} depends on unknown node {dep!r}")
         self._topo_order()
 
-    # ── local execution ───────────────────────────────────────────────────────
+    # ── execution ─────────────────────────────────────────────────────────────
 
-    def run(self, backend: Backend = "local", kubeflow_config: Any = None) -> RunResult:
+    def run(self) -> RunResult:
         """Execute the graph. Returns `(timestamp, {node_name: result})`.
 
-        The backend is an explicit argument rather than something inferred from
-        global config, so a caller can always tell which one it asked for.
+        Validates first, so a malformed graph fails before any node runs rather
+        than halfway through a long one.
         """
         self.validate()
-        if backend == "kubeflow":
-            if kubeflow_config is None:
-                raise ValueError("backend='kubeflow' requires kubeflow_config")
-            return self._run_kubeflow(kubeflow_config)
-        return self._run_local()
+        return self._run()
 
-    def _run_local(self) -> RunResult:
+    def _run(self) -> RunResult:
         ts = _timestamp()
         run_dir = self.runs_dir / ts
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -211,108 +204,6 @@ class DAG:
         if self.save_runs:
             self._save_run(run_dir, cache_status, cache_keys)
         return ts, {name: value for name, (_, value) in self.cache.items()}
-
-    # ── kubeflow execution ────────────────────────────────────────────────────
-
-    def _run_kubeflow(self, kfg: Any) -> RunResult:
-        """Compile the graph to KFP and submit it. One pod per node.
-
-        The node callables are pickled to object storage and a single generic
-        component (`priceshape_ml/kubeflow/node_runner.py`) unpickles and runs them,
-        so adding a node never means writing or rebuilding a KFP component.
-        """
-        try:
-            import kfp
-            from kfp import compiler, dsl
-        except ImportError as exc:
-            raise RuntimeError("kfp is not installed — run: uv sync --group orchestration") from exc
-
-        from priceshape_ml.kubeflow.node_runner import node_runner_body
-        from priceshape_ml.kubeflow.storage import s3_upload
-
-        ts = _timestamp()
-        run_prefix = f"runs/{ts}"
-
-        logger.info(
-            "Uploading %d node callables to s3://%s/%s/fns/",
-            len(self.nodes),
-            kfg.s3_bucket,
-            run_prefix,
-        )
-        for name, node in self.nodes.items():
-            with tempfile.NamedTemporaryFile(suffix=".pkl", delete=False) as f:
-                pickle.dump(node.fn, f)
-                tmp = Path(f.name)
-            try:
-                s3_upload(
-                    tmp,
-                    kfg.s3_bucket,
-                    f"{run_prefix}/fns/{name}.pkl",
-                    endpoint_url=kfg.s3_endpoint,
-                )
-            finally:
-                tmp.unlink(missing_ok=True)
-
-        topo = self._topo_order()
-        # base_image supplies the project package, so pickled callables unpickle;
-        # boto3 is installed per-pod so it need not be a production dependency.
-        node_runner_op = dsl.component(base_image=kfg.base_image, packages_to_install=["boto3"])(
-            node_runner_body
-        )
-
-        @dsl.pipeline(name=self.pipeline_name)
-        def _compiled_pipeline():
-            tasks: dict[str, Any] = {}
-            for name in topo:
-                node = self.nodes[name]
-                task = node_runner_op(
-                    node_name=name,
-                    fn_key=f"{run_prefix}/fns/{name}.pkl",
-                    upstream_names=json.dumps(node.depends_on),
-                    result_prefix=f"{run_prefix}/results",
-                    s3_bucket=kfg.s3_bucket,
-                    s3_endpoint=kfg.s3_endpoint,
-                )
-                self._apply_resources(task, node.fn)
-                for dep in node.depends_on:
-                    task.after(tasks[dep])
-                tasks[name] = task
-
-        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as f:
-            yaml_path = Path(f.name)
-        try:
-            compiler.Compiler().compile(_compiled_pipeline, str(yaml_path))
-            client = kfp.Client(host=kfg.endpoint)
-            run = client.create_run_from_pipeline_package(
-                pipeline_file=str(yaml_path),
-                run_name=ts,
-                experiment_name=kfg.experiment_name,
-            )
-            logger.info("Submitted → %s/#/runs/details/%s", kfg.endpoint, run.run_id)
-        finally:
-            yaml_path.unlink(missing_ok=True)
-
-        if self.save_runs:
-            run_dir = self.runs_dir / ts
-            run_dir.mkdir(parents=True, exist_ok=True)
-            self._save_run(run_dir, dict.fromkeys(self.nodes, "kubeflow"), {})
-
-        # Results live in object storage, not this process.
-        return ts, {}
-
-    @staticmethod
-    def _apply_resources(task: Any, fn: Callable[..., Any]) -> None:
-        """Translate `fn.cfg.resources` into KFP pod requests, if present."""
-        resources = getattr(getattr(fn, "cfg", None), "resources", None)
-        if resources is None:
-            return
-        task.set_cpu_request(resources.cpu_request)
-        task.set_memory_request(resources.memory_request)
-        if resources.accelerator_type:
-            task.set_accelerator_type(resources.accelerator_type)
-            task.set_accelerator_limit(resources.accelerator_limit)
-        if resources.node_pool:
-            task.add_node_selector_constraint("node-pool", resources.node_pool)
 
     # ── caching internals ─────────────────────────────────────────────────────
 

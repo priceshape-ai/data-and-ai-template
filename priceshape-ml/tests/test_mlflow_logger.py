@@ -34,11 +34,10 @@ class TestFlattenConfig:
         assert params["featurizer.model_name"] == config.featurizer.model_name
         assert params["scorer.threshold"] == str(config.scorer.threshold)
 
-    def test_reaches_into_node_resources(self, config) -> None:
+    def test_reaches_into_a_nested_node_config(self, config) -> None:
         params = flatten_config(config)
-        assert (
-            params["featurizer.resources.memory_request"]
-            == config.featurizer.resources.memory_request
+        assert params["featurizer.tokenizer.max_length"] == str(
+            config.featurizer.tokenizer.max_length
         )
 
     def test_drops_infrastructure_sections(self, config) -> None:
@@ -46,7 +45,6 @@ class TestFlattenConfig:
         the same experiment look different when run from another machine."""
         params = flatten_config(config)
         assert not [key for key in params if key.startswith("paths.")]
-        assert not [key for key in params if key.startswith("kubeflow.")]
         assert not [key for key in params if key.startswith("mlflow.")]
         assert not [key for key in params if key.startswith("serving.")]
 

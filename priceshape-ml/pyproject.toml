@@ -1,27 +1,24 @@
 [project]
 name = "priceshape-ml"
-version = "0.1.0"
+version = "0.2.0"
 description = "The pipeline engine, tracking and data sync shared by PriceShape Data & AI projects."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "LicenseRef-Proprietary"
 
-# Deliberately tiny. Everything heavy is optional, because a project that only
-# wants the DAG should not be made to install a cluster SDK to get it.
-dependencies = [
-    "boto3>=1.34",
-]
+# Nothing at all: the DAG, the cache and the git gate are standard library only.
+# Everything else is an extra, so a project that wants the DAG installs the DAG and
+# not a storage or tracking SDK with it.
+dependencies = []
 
 [project.optional-dependencies]
 # `pip install priceshape-ml[tracking]` — the MLflow client. Skinny by default:
 # the full distribution pins pandas<3 across the whole environment, and nothing
 # here runs a tracking server.
 tracking = ["mlflow-skinny>=3.0"]
-# The Kubeflow backend. Only needed to submit runs, never to define a graph.
-kubeflow = ["kfp>=2.7"]
 # The DVC sync. Shells out to `dvc`, so this is what puts it on PATH.
 data = ["dvc[s3]>=3.50"]
-all = ["priceshape-ml[tracking,kubeflow,data]"]
+all = ["priceshape-ml[tracking,data]"]
 
 [dependency-groups]
 dev = [
