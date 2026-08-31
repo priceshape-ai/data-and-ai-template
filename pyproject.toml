@@ -50,7 +50,7 @@ dependencies = [
 # The production image never fetches it either way: `uv sync --no-dev` skips every
 # dependency group, which is exactly the boundary this split exists to hold.
 engine = [
-    "priceshape-ml[tracking,data] @ git+https://github.com/priceshape-ai/data-and-ai-template@engine-v0.2.1#subdirectory=priceshape-ml",
+    "priceshape-ml[tracking,data] @ git+https://github.com/priceshape-ai/data-and-ai-template@engine-v0.2.2#subdirectory=priceshape-ml",
 ]
 lint = [
     "ruff>=0.6",
