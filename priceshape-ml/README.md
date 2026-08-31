@@ -15,7 +15,7 @@ is a separate distribution with its own lockfile, its own tests and its own CI j
 and projects install it as a pinned wheel, never as a path.
 
 ```bash
-uv add "priceshape-ml[tracking,data] @ git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.2.0#subdirectory=priceshape-ml"
+uv add "priceshape-ml[tracking,data] @ git+https://github.com/priceshape-ai/data-and-ai-template@engine-v0.2.1#subdirectory=priceshape-ml"
 ```
 
 ## What a project provides

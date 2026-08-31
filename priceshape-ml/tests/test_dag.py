@@ -271,3 +271,17 @@ class TestItemCache:
         cache.set("x", 1)
         cache.set("y", 2)
         assert (cache.get("x"), cache.get("y")) == (1, 2)
+
+
+def test_dunder_version_matches_the_distribution() -> None:
+    """`priceshape_ml.__version__` and the wheel's version must not drift.
+
+    They did: 0.2.0 shipped with `__version__ = "0.1.0"` still in __init__.py,
+    because nothing compared them. A consumer reading __version__ to decide what
+    the engine supports would have been told the wrong thing.
+    """
+    import importlib.metadata
+
+    import priceshape_ml
+
+    assert priceshape_ml.__version__ == importlib.metadata.version("priceshape-ml")
