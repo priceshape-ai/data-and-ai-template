@@ -81,7 +81,7 @@ docker-run:  ## Run the production image
 
 docker-verify: docker-build  ## Assert the image carries no dev-only tooling
 	@echo "Checking the image for dev-only packages and roots..."
-	@for module in mlflow dvc streamlit kfp; do \
+	@for module in mlflow dvc streamlit; do \
 		if docker run --rm --entrypoint python $(IMAGE):dev -c "import $$module" 2>/dev/null; then \
 			echo "FAIL: $$module is installed in the production image"; exit 1; \
 		fi; \

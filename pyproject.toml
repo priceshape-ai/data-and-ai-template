@@ -46,7 +46,7 @@ dependencies = [
 # The production image never fetches it at all: `uv sync --no-dev` skips every
 # dependency group, which is exactly the boundary this split exists to hold.
 engine = [
-    "priceshape-ml[tracking,kubeflow,data] @ git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.1.0#subdirectory=priceshape-ml",
+    "priceshape-ml[tracking,data] @ git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.2.0#subdirectory=priceshape-ml",
 ]
 lint = [
     "ruff>=0.6",
@@ -80,9 +80,6 @@ viz = [
     "streamlit>=1.35",
     "watchdog>=6.0",        # Streamlit asks for it; without it file-watching polls
 ]
-orchestration = [
-    "kfp>=2.7",
-]
 notebook = [
     "ipykernel>=6.29",
 ]
@@ -93,7 +90,6 @@ dev = [
     {include-group = "tracking"},
     {include-group = "data"},
     {include-group = "viz"},
-    {include-group = "orchestration"},
     {include-group = "notebook"},
 ]
 
@@ -159,7 +155,7 @@ ignore_missing_imports = true
 [tool.importlinter]
 root_packages = ["core", "pipelines", "viz", "priceshape_ml"]
 # Required because the contracts below forbid third-party packages (mlflow, dvc,
-# streamlit, kfp), not just internal ones.
+# streamlit), not just internal ones.
 include_external_packages = true
 
 [[tool.importlinter.contracts]]
@@ -170,7 +166,6 @@ forbidden_modules = [
     "mlflow",
     "dvc",
     "streamlit",
-    "kfp",
     "priceshape_ml",
     "pipelines",
     "viz",

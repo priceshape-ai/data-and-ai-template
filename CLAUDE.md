@@ -58,14 +58,14 @@ contains and what the container runs. Three other roots exist and none of them s
 | `viz/` | no | the Streamlit run explorer | often |
 
 **The machinery is not in this repository.** The DAG, the runner, the git gate,
-MLflow logging, the DVC sync and the Kubeflow backend are the `priceshape-ml`
-package, installed as a dependency. A fix there reaches every project at the next
+MLflow logging and the DVC sync are the `priceshape-ml` package, installed as a
+dependency. A fix there reaches every project at the next
 version bump instead of being copied into each one by hand. Its source lives in
 `data-and-ai-template`, under `priceshape-ml/`; the `engine` group in
 `pyproject.toml` pins the tag this project uses, and bumping it is a deliberate
 edit followed by `uv lock`.
 
-So `src/` must never import `mlflow`, `dvc`, `streamlit`, `kfp`, `priceshape_ml`,
+So `src/` must never import `mlflow`, `dvc`, `streamlit`, `priceshape_ml`,
 `pipelines` or `viz`. `make imports` fails with the exact import chain if it does,
 and a `PreToolUse` hook refuses the edit before that. Dev code importing `src/` is
 the correct direction and is always fine.

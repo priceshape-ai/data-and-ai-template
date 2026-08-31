@@ -22,7 +22,7 @@ response body was not in a valid JSON format. Response body: '<!DOCTYPE html>'
 HTTP basic auth, and the server runs no basic-auth plugin. Reach it directly:
 
 ```bash
-# From a Kubeflow pod — in-cluster, no auth needed
+# From inside the cluster — no auth needed
 MLFLOW_TRACKING_URI=http://mlflow.mlflow.svc.cluster.local
 
 # From a laptop. The server enforces a Host allowlist, so the hostname must
@@ -61,5 +61,5 @@ correct. `uv run pipeline --no-cache` forces a real one.
 
 Hyperparameters as params, `NodeResult.metrics` as `<node>.<metric>`, git
 provenance as tags, and `runs/<timestamp>/` as artefacts. Infrastructure sections —
-paths, mlflow, kubeflow, serving — are deliberately skipped, so the same experiment
+paths, mlflow, serving — are deliberately skipped, so the same experiment
 run from two machines does not look like two configurations.

@@ -29,7 +29,7 @@ from pathlib import Path
 
 # Dev-only roots and the third-party packages that come with them. src/ importing
 # any of these is what the import-linter contract forbids; this catches it earlier.
-FORBIDDEN_IN_SRC = ("mlflow", "dvc", "streamlit", "kfp", "priceshape_ml", "pipelines", "viz")
+FORBIDDEN_IN_SRC = ("mlflow", "dvc", "streamlit", "priceshape_ml", "pipelines", "viz")
 
 _IMPORT_RE = re.compile(
     r"^\s*(?:import|from)\s+(" + "|".join(FORBIDDEN_IN_SRC) + r")\b",
@@ -150,7 +150,6 @@ def check(path_text: str, content: str) -> None:
                 "import time in the image, not here.\n\n"
                 "Where it belongs instead:\n"
                 "  mlflow      the priceshape-ml package\n"
-                "  kfp         the priceshape-ml package\n"
                 "  streamlit   viz/\n"
                 "  dvc         a make target\n\n"
                 "If production genuinely needs this behaviour, move the code into "
@@ -160,13 +159,13 @@ def check(path_text: str, content: str) -> None:
 
     # ── Production dependencies gaining weight ───────────────────────────────
     # Only this project's own manifest. A nested distribution — priceshape-ml/,
-    # whose whole job is to own mlflow, kfp and dvc — declares them legitimately,
-    # and its extras are not this repository's production contract.
+    # whose whole job is to own mlflow and dvc — declares them legitimately, and its
+    # extras are not this repository's production contract.
     if name == "pyproject.toml" and len(parts) == 1:
         prod_block = content.split("[dependency-groups]")[0]
         if "dependencies = [" in prod_block:
             section = prod_block.split("dependencies = [", 1)[1].split("]", 1)[0]
-            for package in ("mlflow", "dvc", "streamlit", "kfp"):
+            for package in ("mlflow", "dvc", "streamlit"):
                 if re.search(rf"[\"']{package}\b", section):
                     deny(
                         f"{package} is being added to [project.dependencies], which "

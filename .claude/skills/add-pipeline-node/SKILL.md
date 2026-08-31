@@ -42,13 +42,11 @@ surprise three stages in.
 class RankerConfig:
     model_name: EmbeddingModel = "BAAI/bge-m3"
     top_k: int = 10
-    resources: NodeResources = field(
-        default_factory=lambda: NodeResources(cpu_request="2", memory_request="8G")
-    )
 ```
 
-`resources` is what lets the same graph run on Kubeflow — locally it is ignored, on
-KFP it becomes the pod's request. A GPU node declares that here, not in a manifest.
+Every field here is part of the node's cache key, so changing one re-runs the node
+and everything downstream. That is the point: a hyperparameter is part of what a
+commit means.
 
 ## 3. The wiring — `pipelines/build.py`
 

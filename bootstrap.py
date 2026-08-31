@@ -122,8 +122,8 @@ PROJECT_SENTINEL = "project-name"
 
 
 # ── shapes ───────────────────────────────────────────────────────────────────
-# Not every project needs all six tools. A shape removes the edges it will not
-# use; the DAG, config, data versioning and run logging are in every one of them,
+# Not every project needs every part. A shape removes the edges it will not use;
+# the DAG, config, data versioning and run logging are in every one of them,
 # because those are what make a project reproducible rather than optional extras.
 #
 # validate() re-walks every surviving import after pruning, so a shape that cuts
@@ -144,20 +144,13 @@ PARTS: dict[str, dict[str, list[str]]] = {
         "roots": ["viz"],
         "modules": ["viz", "streamlit"],
     },
-    "kubeflow": {
-        # The backend lives in priceshape-ml now, so pruning it means dropping the
-        # extra rather than deleting files.
-        "extras": ["kubeflow"],
-        "groups": ["orchestration"],
-        "modules": ["kfp"],
-    },
 }
 
 FLAVORS: dict[str, tuple[tuple[str, ...], str]] = {
-    "full": ((), "everything: a graph, a served model, the cluster backend, the explorer"),
+    "full": ((), "everything: a graph, a served model, the run explorer"),
     "pipeline": (("serving",), "a batch pipeline — no HTTP service to deploy"),
-    "service": (("viz", "kubeflow"), "a served model or language-model product — no cluster runs"),
-    "explore": (("serving", "kubeflow"), "analysis and notebooks — nothing deployed"),
+    "service": (("viz",), "a served model or language-model product — no run explorer"),
+    "explore": (("serving",), "analysis and notebooks — nothing deployed"),
 }
 
 

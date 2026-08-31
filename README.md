@@ -3,7 +3,7 @@
 {{PROJECT_DESCRIPTION}}
 
 A PriceShape Data & AI project. MLflow for experiment tracking, DVC on S3 for data
-and model versioning, a DAG-based pipeline that runs locally or on Kubeflow, and a
+and model versioning, a DAG-based pipeline with per-node caching, and a
 FastAPI service for inference.
 
 ---

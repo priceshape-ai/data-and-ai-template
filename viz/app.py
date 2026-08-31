@@ -29,13 +29,11 @@ _STATUS_FILL = {
     "computed": "#cfe3f7",  # blue — actually ran
     "disk": "#e8e2d0",  # sand — reused from .dag_cache/
     "memory": "#ded9ef",  # lilac — reused within the process
-    "kubeflow": "#d4e8de",  # green-grey — ran in a pod
 }
 _STATUS_LABEL = {
     "computed": "computed",
     "disk": "disk cache",
     "memory": "memory cache",
-    "kubeflow": "Kubeflow",
 }
 
 

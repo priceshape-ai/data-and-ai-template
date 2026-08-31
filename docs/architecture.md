@@ -30,7 +30,7 @@ Four mechanisms, in increasing order of how early they catch a mistake:
 
 | Mechanism | Catches |
 | --- | --- |
-| `[dependency-groups]` in `pyproject.toml` | `uv sync --no-dev` cannot install mlflow, dvc, streamlit or kfp |
+| `[dependency-groups]` in `pyproject.toml` | `uv sync --no-dev` cannot install mlflow, dvc or streamlit |
 | `.dockerignore` + `packages = ["src/core"]` | those roots are in neither the build context nor the wheel |
 | `import-linter` contracts (`make imports`) | `src/` importing a dev-only package, statically, in milliseconds |
 | CI: `uv sync --no-dev` then import the serving app | anything the static check missed, before merge |
@@ -74,8 +74,8 @@ A project depends on it the ordinary way — a pinned git reference in the `engi
 dependency group:
 
 ```
-priceshape-ml[tracking,kubeflow,data] @
-  git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.1.0#subdirectory=priceshape-ml
+priceshape-ml[tracking,data] @
+  git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.2.0#subdirectory=priceshape-ml
 ```
 
 uv resolves the tag once and records the commit it pointed at, so `uv.lock` pins a
@@ -92,9 +92,9 @@ work with `main` of the other. Here they land in one commit, and
 template.
 
 The cost is one piece of discipline: **the engine must never import the project.**
-It reads `log_level`, `paths`, `mlflow` and `kubeflow` off a duck-typed config
-object and matches `NodeResult` structurally through a `runtime_checkable`
-Protocol, so it never imports `core` or `pipelines`. Living in the same
+It reads `log_level`, `paths` and `mlflow` off a duck-typed config object and
+matches `NodeResult` structurally through a `runtime_checkable` Protocol, so it
+never imports `core` or `pipelines`. Living in the same
 repository makes that easy to violate by accident, which is why the engine's tests
 build against a `StubConfig` that shares nothing with this project.
 
@@ -138,36 +138,31 @@ LLM call per record affordable to re-run. Running both would mean two dependency
 graphs to keep in sync, two caches with different invalidation rules, and a standing
 question about which one is authoritative.
 
-### One definition, two backends
+### One way to run it
 
-The same graph runs locally and on Kubeflow:
+There is one execution path, in-process:
 
 ```
-pipelines/build.py          the graph — the only file that knows the shape
+pipelines/build.py    the graph — the only file that knows the shape
         │
-priceshape_ml/dag.py
-        ├── run(backend="local")     in-process, pickle cache in .dag_cache/
-        └── run(backend="kubeflow")  one pod per node, results via S3/MinIO
+priceshape_ml/dag.py  run() — in dependency order, pickle cache in .dag_cache/
 ```
 
-Two details make that work without the graph being written twice:
+The engine carried a second backend once, compiling the same graph to Kubeflow
+Pipelines with one pod per node and results passed through S3. It was removed in
+`engine-v0.2.0`, and the backend *concept* went with it rather than being left as a
+parameter with one legal value.
 
-**Resources travel with the node.** Each node config carries a `NodeResources`
-(`cpu_request`, `memory_request`, `accelerator_type`, `node_pool`). Locally it is
-ignored; on KFP it becomes the pod's request. So a GPU node declares that where its
-hyperparameters live, not in a separate manifest.
+What that bought: no `kfp` dependency anywhere, no object-storage round trip, no
+second set of failure modes to reason about, and a node config that describes the
+computation rather than also describing a pod. The engine's base install now has no
+dependencies at all.
 
-**One generic component runs every node.** `dag.py` pickles each node's callable to
-object storage and compiles one task per node, all sharing
-`priceshape_ml/kubeflow/node_runner.py`. Adding a node never means writing a KFP
-component or rebuilding an image.
-
-`node_runner.py` inlines its own S3 helpers rather than importing
-`priceshape_ml/kubeflow/storage.py`, because KFP lightweight components ship only the
-function's source — and because `pipelines/` is not in any image. What the pod does
-need is the *package*, to unpickle callables that reference
-`core.components...`. Point `KUBEFLOW_BASE_IMAGE` at this project's own
-production image: it contains `src/` and nothing else, which is exactly right.
+What it costs: a graph runs on one machine. A step that needs more memory than the
+machine has is a step that has to be made smaller, or run somewhere else by hand.
+If distributed execution is ever genuinely needed, it belongs behind the same
+`DAG.run()` call — the graph definition never knew which backend it was running on,
+and that property is worth keeping if a second one ever comes back.
 
 ### Cache invalidation
 
@@ -213,7 +208,7 @@ dirty or has unpushed commits.
 
 It steps aside in three cases, and the first is the important one:
 
-- **No git repository** — Kubeflow pods, `docker build`, some CI checkouts. The gate
+- **No git repository** — `docker build`, a running container, some CI checkouts. The gate
   cannot answer, so it does not fail. A gate that hard-fails wherever it cannot run
   is a gate that stops production.
 - **`CI=true`** — CI runs from a fixed commit by definition.

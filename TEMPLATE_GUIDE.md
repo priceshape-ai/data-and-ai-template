@@ -60,8 +60,8 @@ empty value sends boto3 looking for a profile named `''` and fails with
 says so, but not setting it is simpler.
 
 `uv sync` installs the `dev` dependency group by default, which pulls in
-everything: linters, tests, MLflow, DVC, Streamlit and the Kubeflow SDK. There is
-no second requirements file to remember.
+everything: linters, tests, MLflow, DVC and Streamlit. There is no second
+requirements file to remember.
 
 Then get the data and models:
 
@@ -129,10 +129,10 @@ Everything here is yours. The machinery that used to sit alongside it is now the
 ```
 
 The package is a development dependency, so it is absent from the production image,
-exactly as the in-repository `engine/` directory it replaced was. The one part
-worth knowing about is
-`priceshape_ml.kubeflow`, which decides how a run is assembled into cluster tasks —
-see [Running on the cluster](#run-the-same-graph-on-the-cluster).
+exactly as the in-repository `engine/` directory it replaced was. You will rarely
+need to look inside it: `priceshape_ml.dag` runs the graph, `priceshape_ml.gitgate`
+holds the reproducibility gate, `priceshape_ml.tracking` writes to MLflow and
+`priceshape_ml.dvc_sync` moves data.
 
 **The import package is always `core`, in every project.** It is not renamed, so
 imports read identically everywhere and nothing has to be substituted. The
@@ -172,9 +172,6 @@ is a `TypeError` on the first run, not a silent wrong answer.
 class RankerConfig:
     model_name: EmbeddingModel = "BAAI/bge-m3"
     top_k: int = 10
-    resources: NodeResources = field(
-        default_factory=lambda: NodeResources(cpu_request="2", memory_request="8G")
-    )
 ```
 
 Then add `ranker: RankerConfig = field(default_factory=RankerConfig)` to `Config`.
@@ -242,7 +239,7 @@ Every run is logged automatically: hyperparameters as params, every step's
 `NodeResult.metrics` as `<step>.<metric>`, git provenance as tags, and the whole
 of `runs/<timestamp>/` as artefacts — traces included.
 
-Deliberately **not** logged: paths, MLflow, Kubeflow and serving settings. Those
+Deliberately **not** logged: paths, MLflow and serving settings. Those
 differ between machines, and logging them would make one experiment run from two
 laptops look like two configurations.
 
@@ -350,7 +347,7 @@ uv add --group dev pytest-xdist # no  → a dependency group, never in the image
 ```
 
 Groups are never installed by `pip install .` and never reach the image. The guard
-refuses `mlflow`, `dvc`, `streamlit` or `kfp` in the production list — `dvc` alone
+refuses `mlflow`, `dvc` or `streamlit` in the production list — `dvc` alone
 pulls in about sixty packages a serving API never calls.
 
 ### Bump the shared engine
@@ -362,7 +359,7 @@ own. Taking a new one is two steps:
 ```toml
 # pyproject.toml
 engine = [
-    "priceshape-ml[tracking,kubeflow,data] @ git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.2.0#subdirectory=priceshape-ml",
+    "priceshape-ml[tracking,data] @ git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.3.0#subdirectory=priceshape-ml",
 ]
 ```
 
@@ -422,64 +419,9 @@ RUN if [ "$COMPUTE" = "cpu" ]; then \
 
 Then a second workflow with `--build-arg COMPUTE=cpu` and a `cpu-` tag prefix.
 
-**The cluster's base image** — you do not need one. Point `KUBEFLOW_BASE_IMAGE` at
-this project's own production image: it already contains `src/`, which is exactly
-what a pod needs to unpickle the steps.
-
 **A genuinely separate service** — a second `docker/Dockerfile.<name>` and a second
 workflow. Reach for this only when it serves different traffic, not to slim an
 image.
-
-### Run the same graph on the cluster
-
-```bash
-uv run pipeline --backend kubeflow
-```
-
-Nothing about the graph changes — that is the whole design. The engine pickles each
-step, uploads it, and compiles one task per step, all sharing one generic runner.
-Adding a step never means writing a cluster component.
-
-Set `KUBEFLOW_ENDPOINT` and the bucket settings in `.env`. With the endpoint empty
-the run stays local, and `--backend auto` picks whichever applies.
-
-Where each kind of change lives:
-
-| What you want to change | Where |
-| --- | --- |
-| The steps and their order | `pipelines/build.py` — same file as a local run |
-| A step's CPU, memory, GPU, node pool | its `NodeResources`, in `hyperparameters.py` |
-| Endpoint, experiment, bucket, base image | `.env` |
-| How a run is assembled into tasks | `priceshape_ml.kubeflow` |
-
-### Give a step more memory or a GPU
-
-Beside its other settings, not in a separate manifest:
-
-```python
-resources: NodeResources = field(
-    default_factory=lambda: NodeResources(
-        cpu_request="8",
-        memory_request="32G",
-        accelerator_type="nvidia.com/gpu",
-        accelerator_limit=1,
-        node_pool="gpu",
-    )
-)
-```
-
-Ignored on local runs; on the cluster it becomes the pod's request. That is what
-lets one graph definition serve both backends.
-
-### Give a step its own container — not supported yet
-
-Every step in a run shares one image, `KUBEFLOW_BASE_IMAGE`. `NodeResources` covers
-processor, memory and node pool but **not** the image, so a single step cannot ask
-for its own.
-
-The workaround is to put the extra dependency in the production image. If that is
-ever the wrong answer, the change is small and lives in two places: a new field on
-`NodeResources`, and the branch in the engine that builds each task.
 
 ### Deploy the service
 
@@ -493,7 +435,7 @@ readiness.
 
 `src/core/serving/app.py`, with the inference logic in
 `inference.py` beside it. This is production code, so the boundary applies: no
-`mlflow`, no `dvc`, no `streamlit`, no `kfp`. Add a test in
+`mlflow`, no `dvc`, no `streamlit`. Add a test in
 `tests/integration/test_api.py`.
 
 Keep `/livez` and `/healthz` distinct. The model loads on a background thread so
@@ -518,7 +460,7 @@ calling anything done — the four catch different things.
 HTML login page, and no username or password gets through it.
 
 ```bash
-# From a Kubeflow pod — in-cluster, no auth needed
+# From inside the cluster — no auth needed
 MLFLOW_TRACKING_URI=http://mlflow.mlflow.svc.cluster.local
 
 # From a laptop. The server enforces a Host allowlist, so the hostname must
@@ -554,18 +496,15 @@ Only environment-specific values come from the environment (`.env` locally, real
 variables in Kubernetes): endpoints, credentials, log level, port. Hyperparameters
 are code, so that a commit fully determines a run.
 
-Each node config also carries a `NodeResources`, which is what lets one graph
-definition run locally and on Kubeflow — locally the resources are ignored, on KFP
-they become the pod's requests.
-
 ---
 
 ## Running the pipeline
 
 ```bash
-uv run pipeline                     # or: make run
-uv run pipeline --backend kubeflow  # compile to KFP and submit
-uv run pipeline --no-cache          # recompute every node
+uv run pipeline                # or: make run
+uv run pipeline --no-cache     # recompute every node
+uv run pipeline --allow-dirty  # scratch run on a dirty tree
+uv run pipeline --no-save      # do not write anything under runs/
 ```
 
 Define the graph in `pipelines/build.py`. A node is any callable whose keyword
@@ -595,7 +534,7 @@ uv run pipeline --allow-dirty     # deliberate scratch run; tagged git.dirty=tru
 ```
 
 It steps aside automatically where the question is unanswerable or already
-answered: outside a git checkout (Kubeflow pods, `docker build`) and when `CI=true`.
+answered: outside a git checkout (`docker build`, a container) and when `CI=true`.
 
 ### Inspecting a run
 
@@ -619,7 +558,7 @@ format`. No username or password gets past that — the proxy wants an OAuth ses
 not HTTP basic auth. Point the client at the server directly:
 
 ```bash
-# From a Kubeflow pod — in-cluster, no auth needed
+# From inside the cluster — no auth needed
 MLFLOW_TRACKING_URI=http://mlflow.mlflow.svc.cluster.local
 
 # From a laptop — port-forward. The server enforces a Host allowlist, so the
@@ -731,7 +670,6 @@ are never published and never installed by `pip install .`:
 | `tracking` | mlflow-skinny (the client; the server is remote) |
 | `data` | dvc[s3] |
 | `viz` | streamlit |
-| `orchestration` | kfp, boto3 |
 | `notebook` | ipykernel |
 | `dev` | all of the above, via `include-group` |
 
@@ -779,7 +717,7 @@ do not.
 What the hook refuses, each with the alternative named:
 
 - a `.py` file at the repository root
-- `mlflow`, `dvc`, `streamlit`, `kfp`, `pipelines`, `tracking` or `viz` imported
+- `mlflow`, `dvc`, `streamlit`, `priceshape_ml`, `pipelines` or `viz` imported
   under `src/`
 - `config.yaml`, `params.yaml`, `requirements.txt` reappearing
 - a `.gitkeep` inside `.data/` or `.models/`

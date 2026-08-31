@@ -6,8 +6,8 @@
 # Two properties this file is responsible for:
 #
 # 1. **Only production dependencies.** `uv sync --no-dev` installs
-#    `[project].dependencies` and no dependency group, so mlflow, dvc, streamlit
-#    and kfp cannot reach the image. `make docker-verify` asserts it.
+#    `[project].dependencies` and no dependency group, so mlflow, dvc and
+#    streamlit cannot reach the image. `make docker-verify` asserts it.
 #
 # 2. **Only src/.** `--no-editable` makes uv build and install a wheel, and
 #    pyproject's `[tool.hatch.build.targets.wheel] packages` lists just

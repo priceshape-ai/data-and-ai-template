@@ -1,9 +1,8 @@
 # data-and-ai-template
 
 The standard starting point for PriceShape Data, Data Science and AI/ML repositories.
-MLflow, DVC on S3, a DAG-based pipeline that runs locally or on Kubeflow, a FastAPI
-service, and a hard separation between what production runs and what development
-needs.
+MLflow, DVC on S3, a DAG-based pipeline with per-node caching, a FastAPI service,
+and a hard separation between what production runs and what development needs.
 
 > **This file documents the template itself.** `bootstrap.py` deletes it from
 > generated repositories, along with itself, so a new project keeps only its own
@@ -183,15 +182,15 @@ things prevent that, and both matter:
 ## The engine lives here too
 
 `priceshape-ml/` is the shared pipeline engine: the DAG, the runner, the git gate,
-MLflow logging, the DVC sync and the Kubeflow backend. It is a **separate
-distribution** — its own `pyproject.toml`, its own `uv.lock`, its own tests — whose
-source happens to sit in this repository.
+MLflow logging and the DVC sync. It is a **separate distribution** — its own
+`pyproject.toml`, its own `uv.lock`, its own tests — whose source happens to sit in
+this repository.
 
 Projects consume it as a pinned git dependency, never as a path:
 
 ```toml
 engine = [
-    "priceshape-ml[tracking,kubeflow,data] @ git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.1.0#subdirectory=priceshape-ml",
+    "priceshape-ml[tracking,data] @ git+ssh://git@github.com/priceshape-ai/data-and-ai-template@engine-v0.2.0#subdirectory=priceshape-ml",
 ]
 ```
 
@@ -229,8 +228,8 @@ Then release it, and bump whoever should follow:
 ```bash
 # 1. version bump in priceshape-ml/pyproject.toml, in the same commit as the change
 # 2. tag it — engine-v* is the engine, plain v* is the template's image build
-git tag -a engine-v0.2.0 -m "priceshape-ml 0.2.0 — what changed"
-git push origin main engine-v0.2.0
+git tag -a engine-v0.3.0 -m "priceshape-ml 0.3.0 — what changed"
+git push origin main engine-v0.3.0
 # 3. in each consuming project: edit the `engine` group's tag, then
 uv lock
 ```

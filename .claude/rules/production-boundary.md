@@ -13,7 +13,7 @@ are in neither.
 
 ## Forbidden imports under `src/`
 
-`mlflow`, `dvc`, `streamlit`, `kfp`, and the `engine` / `pipelines` / `viz`
+`mlflow`, `dvc`, `streamlit`, and the `priceshape_ml` / `pipelines` / `viz`
 packages. Four mechanisms catch a violation, in the order they fire:
 
 1. A `PreToolUse` hook refuses the edit as you make it.

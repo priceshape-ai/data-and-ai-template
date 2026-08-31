@@ -105,7 +105,7 @@ jobs:
 
       # Every `uv run` below MUST carry --no-dev. A bare `uv run` re-syncs first,
       # and uv installs the `dev` group by default — silently reinstalling mlflow,
-      # dvc, streamlit and kfp, which inverts what this job measures.
+      # dvc and streamlit, which inverts what this job measures.
       - name: Serving app imports
         run: |
           package=$(ls src | head -1)
@@ -113,13 +113,13 @@ jobs:
 
       - name: Dev-only tooling is absent
         run: |
-          for module in mlflow dvc streamlit kfp; do
+          for module in mlflow dvc streamlit; do
             if uv run --no-dev python -c "import ${module}" 2>/dev/null; then
               echo "::error::${module} resolved with --no-dev; it must be in a dependency group"
               exit 1
             fi
           done
-          echo "mlflow, dvc, streamlit and kfp are all correctly absent"
+          echo "mlflow, dvc and streamlit are all correctly absent"
 
   image:
     name: Production image is clean
@@ -132,7 +132,7 @@ jobs:
 
       - name: No dev tooling or dev roots in the image
         run: |
-          for module in mlflow dvc streamlit kfp pipelines viz; do
+          for module in mlflow dvc streamlit pipelines viz; do
             if docker run --rm --entrypoint python ci-image:test -c "import ${module}" 2>/dev/null; then
               echo "::error::${module} is present in the production image"
               exit 1

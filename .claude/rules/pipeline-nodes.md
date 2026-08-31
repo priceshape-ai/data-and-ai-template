@@ -36,13 +36,6 @@ fingerprint. Hold the config; load on first call.
 
 Keep instance state cheap and JSON-representable for the same reason.
 
-## Resources travel with the node
-
-Each node config carries a `NodeResources` (`cpu_request`, `memory_request`,
-`accelerator_type`, `node_pool`). Locally it is ignored; on Kubeflow it becomes the
-pod's request. So a GPU node declares that where its hyperparameters live, not in a
-separate manifest — which is what lets one graph definition run both backends.
-
 ## Debugging "my change did nothing"
 
 Rule out the cache before concluding a change had no effect. If the log says

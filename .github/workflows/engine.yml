@@ -107,6 +107,5 @@ jobs:
           assert hasattr(priceshape_ml, 'run'), 'priceshape_ml.run is missing'
           for module in ('dag', 'runner', 'gitgate', 'tracking', 'dvc_sync', 'result'):
               assert importlib.util.find_spec('priceshape_ml.' + module), module
-          assert importlib.util.find_spec('priceshape_ml.kubeflow.node_runner')
           print('engine wheel imports cleanly')
           "
