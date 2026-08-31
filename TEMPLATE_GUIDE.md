@@ -128,8 +128,8 @@ Everything here is yours. The machinery that used to sit alongside it is now the
 └── .data.dvc  .models.dvc     # DVC pointers — created by `make dvc-pull`, then committed
 ```
 
-The package is a development dependency, so it is absent from the production image,
-exactly as the in-repository `engine/` directory it replaced was. You will rarely
+The package is a development dependency, so it is absent from the production image.
+You will rarely
 need to look inside it: `priceshape_ml.dag` runs the graph, `priceshape_ml.gitgate`
 holds the reproducibility gate, `priceshape_ml.tracking` writes to MLflow and
 `priceshape_ml.dvc_sync` moves data.

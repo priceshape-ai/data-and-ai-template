@@ -71,7 +71,7 @@ def test_structural_violations_are_denied(path: str, content: str) -> None:
         # Ordinary production code.
         ("src/core/components/ranker.py", "import numpy as np\n"),
         # Prose that merely mentions a forbidden package.
-        ("src/core/config/hyperparameters.py", '"""tracking/ imports mlflow."""\n'),
+        ("src/core/config/hyperparameters.py", '"""viz/ imports mlflow."""\n'),
         ("src/core/config/hyperparameters.py", "class MlflowConfig:\n    uri: str\n"),
         # The correct way to declare a credential: empty, filled from the env.
         ("src/core/config/hyperparameters.py", '    api_key: str = ""\n'),

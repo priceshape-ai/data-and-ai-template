@@ -11,9 +11,9 @@
 #
 # 2. **Only src/.** `--no-editable` makes uv build and install a wheel, and
 #    pyproject's `[tool.hatch.build.targets.wheel] packages` lists just
-#    src/project_name — so pipelines/, tracking/ and viz/ are absent even though
-#    they sit in the repo root. .dockerignore excludes them from the build
-#    context as well, so neither layer nor context carries them.
+#    src/core — so pipelines/ and viz/ are absent even though they sit in the
+#    repo root. .dockerignore excludes them from the build context as well, so
+#    neither layer nor context carries them.
 #
 # Model weights are NOT baked in. The deployment mounts them at /app/.models or
 # syncs them there on start, so swapping a model is a restart, not a rebuild.
