@@ -244,8 +244,13 @@ This repository is private, and `GITHUB_TOKEN` is scoped to the repository that
 calls it — so a *generated* project's CI cannot clone this one to fetch the engine.
 `ci.yml` expects an organisation secret named `ENGINE_TOKEN`: a read-only token
 that can clone `priceshape-ai/data-and-ai-template`. With it set, the workflow
-rewrites `ssh://` to authenticated `https://`; without it, the install fails with a
-warning naming the secret rather than an opaque fetch error.
+rewrites `ssh://` to authenticated `https://`.
+
+Without it the workflow falls back to `GITHUB_TOKEN`, which is enough **here** and
+nowhere else: in this repository the engine source *is* the repository the job is
+running in. So the template stays green with no secret to configure, and a
+generated project fails with a notice naming the secret rather than an opaque
+`Permission denied (publickey)`.
 
 It sits alongside `OIDC_ROLE_ARN`, which `build.yml` needs for ECR. Neither is
 stored in a repository.

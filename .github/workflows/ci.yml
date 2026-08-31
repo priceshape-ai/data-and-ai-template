@@ -25,28 +25,43 @@ jobs:
           enable-cache: true
 
       # The `engine` dependency group installs priceshape-ml from a subdirectory
-      # of the template repository, which is private. GITHUB_TOKEN is scoped to
-      # this repository alone and cannot clone it, and a runner has no SSH key —
-      # so without a credential the sync fails at the fetch.
+      # of the template repository, which is private, and a runner has no SSH key
+      # — so without a credential the sync fails with "Permission denied
+      # (publickey)". Rewriting ssh:// to authenticated https lets uv fetch the
+      # pinned commit without changing what pyproject.toml says, so a developer
+      # with their own SSH key is unaffected.
       #
-      # ENGINE_TOKEN is an organisation secret: a read-only token that can clone
-      # priceshape-ai/data-and-ai-template. Rewriting ssh:// to authenticated
-      # https lets uv fetch the pinned tag without changing what pyproject.toml
-      # says, so a developer with an SSH key is unaffected. The token is written
-      # to the runner's git config, never echoed; the runner is discarded after
-      # the job.
+      # Two credentials can serve, and which one is available says where you are:
+      #
+      #   ENGINE_TOKEN   an organisation secret that can clone
+      #                  priceshape-ai/data-and-ai-template. This is what a
+      #                  generated project needs.
+      #   GITHUB_TOKEN   always present, but scoped to the repository running the
+      #                  job. That is enough in the template repository itself,
+      #                  where the engine source is in this very repository, and
+      #                  it is not enough anywhere else.
+      #
+      # So the fallback keeps the template green with no secret to configure, and
+      # a generated project still fails loudly until ENGINE_TOKEN exists. Only the
+      # name of the credential is ever echoed; the runner is discarded after the
+      # job.
       - name: Allow fetching the shared engine
         env:
           ENGINE_TOKEN: ${{ secrets.ENGINE_TOKEN }}
+          FALLBACK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -n "$ENGINE_TOKEN" ]; then
-            git config --global \
-              url."https://x-access-token:${ENGINE_TOKEN}@github.com/".insteadOf \
-              "ssh://git@github.com/"
-            echo "Engine fetch: authenticated over https."
+            token="$ENGINE_TOKEN"
+            source="ENGINE_TOKEN"
           else
-            echo "::warning::ENGINE_TOKEN is not set. The engine cannot be fetched from the private template repository; add it as an organisation secret (a read-only token that can clone priceshape-ai/data-and-ai-template)."
+            token="$FALLBACK_TOKEN"
+            source="GITHUB_TOKEN"
+            echo "::notice::ENGINE_TOKEN is not set; falling back to GITHUB_TOKEN, which can only read the repository running this job. That is enough while the engine source lives here. In a project generated from this template it is not, and the install below will fail — add ENGINE_TOKEN as an organisation secret: a read-only token that can clone priceshape-ai/data-and-ai-template."
           fi
+          git config --global \
+            url."https://x-access-token:${token}@github.com/".insteadOf \
+            "ssh://git@github.com/"
+          echo "Engine fetch: authenticated over https using ${source}."
 
       - name: Install
         run: uv sync --locked

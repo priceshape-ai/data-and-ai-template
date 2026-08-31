@@ -381,8 +381,10 @@ release steps.
 > **CI needs `ENGINE_TOKEN`.** The template repository is private and this
 > project's `GITHUB_TOKEN` cannot read it, so `.github/workflows/ci.yml` expects an
 > organisation secret that can clone it. Without the secret the install step fails
-> with a warning naming it. The production image is unaffected: `uv sync --no-dev`
-> selects no dependency group and never fetches the engine.
+> with a notice naming it — ask whoever administers the `priceshape-ai`
+> organisation. The production image is unaffected: `uv sync --no-dev` selects no
+> dependency group and never fetches the engine, which is why the production jobs
+> stay green either way.
 
 ### Build the container
 
