@@ -17,3 +17,11 @@ artifacts/
 .claude/
 notebooks/
 __pycache__/
+
+# Finder writes a .DS_Store into every directory it opens, and this is the one
+# pattern here that deliberately reaches INSIDE .data/ and .models/. Without it
+# the file joins the tracked directory's hash, so merely opening .data/ in Finder
+# changes the .dir hash: .data.dvc shows modified, and you get a pointer commit
+# and a push for a file that means nothing. .gitignore lists it too, but per the
+# note at the top DVC does not read .gitignore.
+.DS_Store
